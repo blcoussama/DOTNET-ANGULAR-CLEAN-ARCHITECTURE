@@ -1,0 +1,454 @@
+# Intégration continue de CreditFlow.
+# Aucun déploiement : ce workflow construit, vérifie, teste et analyse. Rien n'est publié
+# (ni image poussée vers un registre, ni secret utilisé).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: "true"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "true"
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
+  NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
+  NG_CLI_ANALYTICS: "false"
+  DOTNET_VERSION: "10.0.x"
+  NODE_VERSION: "24"
+  SOLUTION: CreditFlow.slnx
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Backend : build, format, tests unitaires + tests d'intégration sur SQL Server
+  # ---------------------------------------------------------------------------
+  backend:
+    name: Backend (.NET 10, SQL Server)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_PID: Developer
+          # Mot de passe jetable propre à ce run (conteneur éphémère, joignable seulement depuis
+          # le runner). Ce n'est pas un secret : il est reconstruit à l'identique plus bas.
+          MSSQL_SA_PASSWORD: CfCi-${{ github.run_id }}-${{ github.run_attempt }}
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'CfCi-${{ github.run_id }}-${{ github.run_attempt }}' -Q 'SELECT 1' -b -o /dev/null"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 20s
+    env:
+      CREDITFLOW_TEST_DB_PROVIDER: SqlServer
+      CREDITFLOW_TEST_DB: Server=localhost,1433;Database=creditflow_ci_test;User Id=sa;Password=CfCi-${{ github.run_id }}-${{ github.run_attempt }};TrustServerCertificate=True
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/**/*.props', 'backend/**/*.targets', 'backend/**/global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore "$SOLUTION"
+
+      - name: Build (Release)
+        run: dotnet build "$SOLUTION" -c Release --no-restore
+
+      - name: Format (vérification seule)
+        run: dotnet format "$SOLUTION" --verify-no-changes --no-restore --verbosity minimal
+
+      - name: Tests unitaires (Domain, Application)
+        run: |
+          for project in tests/CreditFlow.Domain.Tests tests/CreditFlow.Application.Tests; do
+            dotnet test "$project" -c Release --no-build \
+              --logger "trx;LogFilePrefix=$(basename "$project")" \
+              --results-directory "TestResults/$(basename "$project")" \
+              --collect "XPlat Code Coverage"
+          done
+
+      - name: Tests d'intégration (API + SQL Server)
+        run: >-
+          dotnet test tests/CreditFlow.Api.IntegrationTests -c Release --no-build
+          --logger "trx;LogFilePrefix=integration-sqlserver"
+          --results-directory TestResults/CreditFlow.Api.IntegrationTests
+          --collect "XPlat Code Coverage"
+
+      - name: Résumé de couverture
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import glob, xml.etree.ElementTree as ET
+          # Les copies sous .../In/<machine>/ sont des doublons (pièces jointes du TRX).
+          files = sorted(f for f in glob.glob("TestResults/**/coverage.cobertura.xml", recursive=True) if "/In/" not in f)
+          print("### Couverture des lignes (coverlet)\n")
+          if not files:
+              print("Aucun rapport de couverture trouvé.")
+          for f in files:
+              root = ET.parse(f).getroot()
+              rate = float(root.get("line-rate", 0)) * 100
+              print(f"- {f.split('/')[1]} : {rate:.1f} % ({root.get('lines-covered')}/{root.get('lines-valid')} lignes)")
+          PY
+
+      - name: Publier résultats de tests et couverture
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-test-results-sqlserver
+          path: backend/TestResults/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Backend : mêmes tests d'intégration sur PostgreSQL (fournisseur secondaire)
+  # ---------------------------------------------------------------------------
+  backend-postgres:
+    name: Backend (tests d'intégration, PostgreSQL ${{ matrix.postgres }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres: ["17", "18"]
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:${{ matrix.postgres }}-alpine
+        env:
+          POSTGRES_USER: creditflow
+          # Mot de passe jetable propre à ce run (voir job backend).
+          POSTGRES_PASSWORD: CfCi-${{ github.run_id }}-${{ github.run_attempt }}
+          POSTGRES_DB: creditflow_ci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U creditflow -d creditflow_ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      CREDITFLOW_TEST_DB_PROVIDER: PostgreSQL
+      CREDITFLOW_TEST_DB: Host=localhost;Port=5432;Database=creditflow_ci_test;Username=creditflow;Password=CfCi-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/**/*.props', 'backend/**/*.targets', 'backend/**/global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore "$SOLUTION"
+
+      - name: Build (Release)
+        run: dotnet build "$SOLUTION" -c Release --no-restore
+
+      - name: Tests d'intégration (API + PostgreSQL)
+        run: >-
+          dotnet test tests/CreditFlow.Api.IntegrationTests -c Release --no-build
+          --logger "trx;LogFilePrefix=integration-postgres"
+          --results-directory TestResults/integration-postgres
+
+      - name: Publier résultats de tests
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-test-results-postgres-${{ matrix.postgres }}
+          path: backend/TestResults/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # ---------------------------------------------------------------------------
+  # Frontend : lint, tests (Vitest, non interactif), build de production
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: Frontend (Angular, Node 24)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Installer les dépendances
+        run: npm ci --no-audit --no-fund
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests unitaires (Vitest, non interactif)
+        run: npm test # = ng test --watch=false
+
+      - name: Build de production
+        run: npm run build
+
+  # ---------------------------------------------------------------------------
+  # Bout en bout : Chromium (Playwright) -> build de production Angular -> API -> PostgreSQL
+  # ---------------------------------------------------------------------------
+  e2e:
+    name: Bout en bout (Playwright, PostgreSQL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: creditflow
+          # Mot de passe jetable propre à ce run (voir job backend).
+          POSTGRES_PASSWORD: CfCi-${{ github.run_id }}-${{ github.run_attempt }}
+          POSTGRES_DB: creditflow_e2e
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U creditflow -d creditflow_e2e"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      E2E_DB_PROVIDER: PostgreSQL
+      E2E_DB: Host=localhost;Port=5432;Database=creditflow_e2e;Username=creditflow;Password=CfCi-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet
+        uses: actions/cache@v6
+        with:
+          path: ${{ env.NUGET_PACKAGES }}
+          key: nuget-${{ runner.os }}-${{ hashFiles('backend/**/*.csproj', 'backend/**/*.props', 'backend/**/*.targets', 'backend/**/global.json') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+
+      - name: Installer les dépendances (frontend, Playwright + Chromium)
+        run: |
+          npm ci --no-audit --no-fund --prefix frontend
+          npm ci --no-audit --no-fund --prefix e2e
+          (cd e2e && npx playwright install --with-deps chromium)
+
+      - name: Démarrer la pile (API + SPA de production)
+        working-directory: e2e
+        run: bash run-stack.sh
+
+      - name: Tests Playwright
+        working-directory: e2e
+        run: npx playwright test -c playwright.config.js
+
+      - name: Journaux et traces (en cas d'échec)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results
+          path: |
+            e2e/.tmp/*.log
+            e2e/.tmp/results/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Arrêter la pile
+        if: always()
+        working-directory: e2e
+        run: npm run stop
+
+  # ---------------------------------------------------------------------------
+  # Docker : build des deux images (sans push) + test de fumée docker compose
+  # ---------------------------------------------------------------------------
+  docker:
+    name: Docker (images + test de fumée compose)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Build image API
+        uses: docker/build-push-action@v7
+        with:
+          context: backend
+          file: backend/Dockerfile
+          push: false
+          load: true
+          tags: creditflow-api:ci
+          cache-from: type=gha,scope=creditflow-api
+          cache-to: type=gha,mode=max,scope=creditflow-api
+
+      - name: Build image frontend
+        uses: docker/build-push-action@v7
+        with:
+          context: frontend
+          file: frontend/Dockerfile
+          push: false
+          load: true
+          tags: creditflow-frontend:ci
+          cache-from: type=gha,scope=creditflow-frontend
+          cache-to: type=gha,mode=max,scope=creditflow-frontend
+
+      - name: Générer un .env aléatoire (jetable)
+        run: |
+          umask 077
+          sa_password="Cf1-$(openssl rand -hex 16)"
+          jwt_key="$(openssl rand -base64 48 | tr -d '\n')"
+          echo "::add-mask::${sa_password}"
+          echo "::add-mask::${jwt_key}"
+          {
+            echo "ASPNETCORE_ENVIRONMENT=Production"
+            echo "MSSQL_SA_PASSWORD=${sa_password}"
+            echo "MSSQL_DATABASE=CreditFlow"
+            echo "JWT_SIGNING_KEY=${jwt_key}"
+            echo "CORS_ALLOWED_ORIGIN=http://localhost:8080"
+            echo "FRONTEND_BIND_ADDRESS=127.0.0.1"
+            echo "FRONTEND_PORT=8080"
+            echo "IMAGE_TAG=ci"
+          } > .env
+
+      - name: Valider docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Démarrer la pile (images construites ci-dessus)
+        run: docker compose up -d --no-build --wait --wait-timeout 420
+
+      - name: Test de fumée
+        run: |
+          set -euo pipefail
+          base="http://127.0.0.1:8080"
+          retry=(--retry 10 --retry-delay 3 --retry-all-errors --max-time 10)
+
+          echo "::group::GET /api/v1/health (via nginx)"
+          curl -fsS "${retry[@]}" "$base/api/v1/health"; echo
+          echo "::endgroup::"
+
+          echo "::group::SPA : page d'accueil et repli index.html sur une route profonde"
+          curl -fsS "${retry[@]}" "$base/" | grep -q '<app-root'
+          curl -fsS "${retry[@]}" "$base/client/demandes" | grep -q '<app-root'
+          echo "::endgroup::"
+
+          echo "::group::En-têtes de sécurité"
+          headers="$(curl -fsS -o /dev/null -D - "$base/")"
+          echo "$headers"
+          for h in content-security-policy x-content-type-options x-frame-options referrer-policy; do
+            grep -qi "^${h}:" <<<"$headers" || { echo "En-tête manquant : $h"; exit 1; }
+          done
+          # Sur /api, seuls les en-têtes posés par l'API doivent apparaître (pas de doublon nginx).
+          api_headers="$(curl -fsS -o /dev/null -D - "$base/api/v1/health")"
+          [ "$(grep -ci '^x-content-type-options:' <<<"$api_headers")" -eq 1 ] || { echo "En-têtes dupliqués sur /api"; exit 1; }
+          echo "::endgroup::"
+
+          echo "::group::GET /api/v1/products (API + SQL Server via nginx)"
+          products="$(curl -fsS "${retry[@]}" -H 'Accept: application/json' "$base/api/v1/products")"
+          echo "$products" | jq .
+          jq -e 'length >= 3' <<<"$products" > /dev/null
+          echo "::endgroup::"
+
+      - name: Journaux des conteneurs (en cas d'échec)
+        if: failure()
+        run: |
+          docker compose ps -a
+          docker compose logs --no-color --timestamps
+
+      - name: Arrêter la pile
+        if: always()
+        run: docker compose down -v --remove-orphans
+
+  # ---------------------------------------------------------------------------
+  # Sécurité : secrets dans l'historique, dépendances vulnérables (.NET et npm)
+  # ---------------------------------------------------------------------------
+  security:
+    name: Sécurité (gitleaks, NuGet, npm audit)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # historique complet pour gitleaks
+
+      - name: Gitleaks (tout l'historique git)
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP"
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          base_url="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          curl -fsSL -o "$archive" "$base_url/$archive"
+          curl -fsSL -o checksums.txt "$base_url/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          grep " ${archive}\$" checksums.txt | sha256sum -c -
+          tar -xzf "$archive" gitleaks
+          cd "$GITHUB_WORKSPACE"
+          "$RUNNER_TEMP/gitleaks" git . --redact --no-banner --verbose --exit-code 1
+
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Paquets NuGet vulnérables (directs et transitifs)
+        working-directory: backend
+        run: |
+          set -euo pipefail
+          dotnet restore "$SOLUTION"
+          dotnet list "$SOLUTION" package --vulnerable --include-transitive
+          dotnet list "$SOLUTION" package --vulnerable --include-transitive --format json > "$RUNNER_TEMP/nuget-vulnerable.json"
+          count="$(jq '[.projects[]?.frameworks[]? | (.topLevelPackages // []) + (.transitivePackages // []) | .[] | select((.vulnerabilities // []) | length > 0)] | length' "$RUNNER_TEMP/nuget-vulnerable.json")"
+          if [ "$count" -gt 0 ]; then
+            echo "::error::$count paquet(s) NuGet vulnérable(s) détecté(s)"
+            exit 1
+          fi
+          echo "Aucun paquet NuGet vulnérable connu."
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: npm audit (dépendances de production, sévérité ≥ high)
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
