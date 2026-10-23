@@ -1,0 +1,12 @@
+# Artefacts de build .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+*.trx
+coverage*/
+
+# Pièces déposées en local (jamais versionnées)
+**/App_Data/

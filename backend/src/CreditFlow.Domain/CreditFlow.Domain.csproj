@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>CreditFlow.Domain</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Le domaine ne dépend d'aucun paquet ni d'aucun autre projet. -->
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="CreditFlow.Domain.Tests" />
+  </ItemGroup>
+
+</Project>
