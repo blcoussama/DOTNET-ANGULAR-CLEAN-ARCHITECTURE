@@ -1,0 +1,86 @@
+.cf-hero {
+  background: linear-gradient(135deg, var(--mat-sys-primary-container), var(--mat-sys-surface));
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.cf-hero-inner {
+  padding-top: 40px;
+  padding-bottom: 32px;
+}
+
+.cf-hero-text {
+  max-width: 720px;
+
+  h1 {
+    font: var(--mat-sys-headline-large);
+    color: var(--mat-sys-on-primary-container);
+  }
+
+  p {
+    font: var(--mat-sys-body-large);
+    margin: 0;
+  }
+}
+
+.cf-sim-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  align-items: start;
+
+  @media (max-width: 959.98px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.cf-field-label {
+  margin: 0 0 8px;
+  font: var(--mat-sys-label-large);
+}
+
+.cf-product-toggle {
+  flex-wrap: wrap;
+
+  mat-icon {
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+}
+
+.cf-product-desc {
+  margin: 8px 0 0;
+}
+
+.cf-result-card {
+  position: sticky;
+  top: 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cf-cta {
+  width: 100%;
+}
+
+.cf-cta-hint {
+  margin: 0;
+  text-align: center;
+  font: var(--mat-sys-body-small);
+}
+
+.cf-features {
+  padding-top: 0;
+
+  mat-icon {
+    color: var(--mat-sys-primary);
+  }
+
+  h3 {
+    margin-top: 8px;
+  }
+
+  p {
+    margin: 0;
+  }
+}

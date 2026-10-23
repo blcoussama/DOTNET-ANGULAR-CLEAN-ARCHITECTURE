@@ -1,0 +1,40 @@
+.cf-auth-page {
+  display: flex;
+  justify-content: center;
+  padding-top: 40px;
+}
+
+.cf-auth-card {
+  width: 100%;
+  max-width: 480px;
+}
+
+.cf-auth-card-wide {
+  max-width: 600px;
+}
+
+.cf-auth-submit {
+  height: 44px;
+
+  mat-progress-spinner {
+    display: inline-block;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+}
+
+.cf-auth-switch {
+  margin: 20px 0 0;
+  text-align: center;
+}
+
+.cf-password-rules {
+  margin: -4px 0 8px;
+  padding-left: 20px;
+  font: var(--mat-sys-body-small);
+  color: var(--mat-sys-on-surface-variant);
+
+  .cf-ok {
+    color: var(--cf-success);
+  }
+}

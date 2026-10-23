@@ -1,0 +1,64 @@
+.cf-back {
+  margin-bottom: 8px;
+}
+
+.cf-section {
+  margin-top: 16px;
+}
+
+.cf-actions-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+
+  p {
+    margin: 0;
+  }
+}
+
+.cf-pre {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.cf-debt {
+  margin-top: 16px;
+}
+
+.cf-debt-over {
+  color: var(--cf-danger);
+  font-weight: 700;
+}
+
+.cf-debt-gauge {
+  position: relative;
+  height: 12px;
+  margin-top: 8px;
+  border-radius: 6px;
+  background: var(--mat-sys-surface-container-highest);
+}
+
+.cf-debt-fill {
+  display: block;
+  height: 100%;
+  border-radius: 6px;
+  background: var(--cf-success);
+}
+
+.cf-debt-fill-over {
+  background: var(--cf-danger);
+}
+
+.cf-debt-threshold {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--mat-sys-on-surface);
+}
+
+.cf-small {
+  margin: 4px 0 0;
+  font: var(--mat-sys-body-small);
+}

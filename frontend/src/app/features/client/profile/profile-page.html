@@ -1,0 +1,207 @@
+<section class="cf-page cf-page-narrow">
+  <header class="cf-page-header">
+    <div>
+      <h1>Profil financier</h1>
+      <p class="cf-muted">
+        Ces informations servent au calcul de votre capacité d'emprunt. Un profil complet est
+        obligatoire pour soumettre une demande.
+      </p>
+    </div>
+  </header>
+
+  @if (loading()) {
+    <app-loading-state label="Chargement de votre profil…" />
+  } @else if (loadError()) {
+    <app-error-state
+      title="Impossible de charger votre profil"
+      [message]="loadError()"
+      (retry)="load()"
+    />
+  } @else {
+    <div class="cf-card cf-completion" data-testid="completion">
+      <div class="cf-row">
+        @if (serverComplete() && form.pristine) {
+          <span class="cf-badge cf-status-approved" data-testid="profile-complete">
+            <mat-icon class="cf-badge-icon" aria-hidden="true">verified</mat-icon> Profil complet
+          </span>
+        } @else {
+          <span class="cf-badge cf-status-info-requested" data-testid="profile-incomplete">
+            <mat-icon class="cf-badge-icon" aria-hidden="true">pending</mat-icon>
+            {{ serverComplete() ? 'Modifications non enregistrées' : 'Profil incomplet' }}
+          </span>
+        }
+        <span class="cf-spacer"></span>
+        <span class="cf-muted">{{ completion() }} % des informations obligatoires</span>
+      </div>
+      <mat-progress-bar
+        mode="determinate"
+        [value]="completion()"
+        aria-label="Progression du profil"
+      />
+    </div>
+
+    @if (serverErrors().length) {
+      <div class="cf-alert cf-alert-danger" role="alert">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        <div>
+          @for (message of serverErrors(); track $index) {
+            <p>{{ message }}</p>
+          }
+        </div>
+      </div>
+    }
+
+    <form class="cf-card" [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <h2>Informations personnelles</h2>
+      <div class="cf-form-grid">
+        <mat-form-field>
+          <mat-label>Date de naissance</mat-label>
+          <input matInput type="date" formControlName="dateOfBirth" autocomplete="bday" required />
+          @if (form.controls.dateOfBirth.hasError('required')) {
+            <mat-error>La date de naissance est obligatoire.</mat-error>
+          } @else if (form.controls.dateOfBirth.hasError('minAge')) {
+            <mat-error>Vous devez avoir au moins {{ minAge }} ans.</mat-error>
+          } @else if (
+            form.controls.dateOfBirth.hasError('maxAge') ||
+            form.controls.dateOfBirth.hasError('date')
+          ) {
+            <mat-error>Date de naissance invalide.</mat-error>
+          } @else if (form.controls.dateOfBirth.hasError('server')) {
+            <mat-error>{{ form.controls.dateOfBirth.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Téléphone</mat-label>
+          <input
+            matInput
+            type="tel"
+            formControlName="phone"
+            autocomplete="tel"
+            placeholder="+212 6 12 34 56 78"
+            required
+          />
+          @if (form.controls.phone.hasError('required')) {
+            <mat-error>Le téléphone est obligatoire.</mat-error>
+          } @else if (form.controls.phone.hasError('pattern')) {
+            <mat-error>Numéro de téléphone invalide.</mat-error>
+          } @else if (form.controls.phone.hasError('server')) {
+            <mat-error>{{ form.controls.phone.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field class="cf-full">
+          <mat-label>Ville</mat-label>
+          <input matInput formControlName="city" autocomplete="address-level2" required />
+          @if (form.controls.city.hasError('required')) {
+            <mat-error>La ville est obligatoire.</mat-error>
+          } @else if (form.controls.city.hasError('maxlength')) {
+            <mat-error>100 caractères maximum.</mat-error>
+          } @else if (form.controls.city.hasError('server')) {
+            <mat-error>{{ form.controls.city.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <h2>Situation professionnelle</h2>
+      <div class="cf-form-grid">
+        <mat-form-field>
+          <mat-label>Type de contrat</mat-label>
+          <mat-select formControlName="employmentType" required>
+            @for (type of employmentTypes; track type) {
+              <mat-option [value]="type">{{ employmentLabels[type] }}</mat-option>
+            }
+          </mat-select>
+          @if (form.controls.employmentType.hasError('required')) {
+            <mat-error>Le type de contrat est obligatoire.</mat-error>
+          } @else if (form.controls.employmentType.hasError('server')) {
+            <mat-error>{{ form.controls.employmentType.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Employeur (facultatif)</mat-label>
+          <input matInput formControlName="employer" autocomplete="organization" />
+          @if (form.controls.employer.hasError('maxlength')) {
+            <mat-error>150 caractères maximum.</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Ancienneté dans l'emploi actuel (années)</mat-label>
+          <input
+            matInput
+            type="number"
+            inputmode="decimal"
+            min="0"
+            max="60"
+            step="1"
+            formControlName="yearsAtCurrentJob"
+            required
+          />
+          @if (form.controls.yearsAtCurrentJob.hasError('required')) {
+            <mat-error>L'ancienneté est obligatoire (0 si sans emploi).</mat-error>
+          } @else if (form.controls.yearsAtCurrentJob.invalid) {
+            <mat-error>Nombre entier d'années entre 0 et 60.</mat-error>
+          }
+        </mat-form-field>
+      </div>
+
+      <h2>Budget mensuel</h2>
+      <div class="cf-form-grid">
+        <mat-form-field>
+          <mat-label>Revenu mensuel net (MAD)</mat-label>
+          <input
+            matInput
+            type="number"
+            inputmode="decimal"
+            min="0"
+            formControlName="monthlyIncome"
+            required
+          />
+          @if (form.controls.monthlyIncome.hasError('required')) {
+            <mat-error>Le revenu mensuel est obligatoire.</mat-error>
+          } @else if (form.controls.monthlyIncome.hasError('positive')) {
+            <mat-error>Le revenu doit être strictement positif.</mat-error>
+          } @else if (form.controls.monthlyIncome.hasError('server')) {
+            <mat-error>{{ form.controls.monthlyIncome.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Mensualités de crédits en cours (MAD)</mat-label>
+          <input
+            matInput
+            type="number"
+            inputmode="decimal"
+            min="0"
+            formControlName="monthlyCharges"
+            required
+          />
+          <mat-hint>0 si vous n'avez aucun crédit en cours.</mat-hint>
+          @if (form.controls.monthlyCharges.hasError('required')) {
+            <mat-error>Indiquez 0 si vous n'avez aucune mensualité.</mat-error>
+          } @else if (form.controls.monthlyCharges.hasError('min')) {
+            <mat-error>Les charges ne peuvent pas être négatives.</mat-error>
+          } @else if (form.controls.monthlyCharges.hasError('server')) {
+            <mat-error>{{ form.controls.monthlyCharges.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+      </div>
+      @if (currentDebtRatio() !== null) {
+        <p class="cf-muted" data-testid="current-debt">
+          Endettement actuel (hors nouvelle demande) :
+          <strong>{{ currentDebtRatio() | percent: '1.0-1' }}</strong>
+        </p>
+      }
+
+      <div class="cf-actions">
+        @if (safeReturnUrl()) {
+          <button mat-button type="button" (click)="goBack()">Revenir à ma demande</button>
+        }
+        <button mat-flat-button type="submit" [disabled]="saving()">
+          @if (saving()) {
+            Enregistrement…
+          } @else {
+            Enregistrer le profil
+          }
+        </button>
+      </div>
+    </form>
+  }
+</section>

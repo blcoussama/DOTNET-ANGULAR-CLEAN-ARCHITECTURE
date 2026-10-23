@@ -1,0 +1,215 @@
+<section class="cf-page">
+  <a mat-button routerLink="/client/demandes" class="cf-back">
+    <mat-icon aria-hidden="true">arrow_back</mat-icon> Mes demandes
+  </a>
+
+  @if (application.error()) {
+    @if (notFound()) {
+      <div class="cf-state">
+        <mat-icon class="cf-state-icon" aria-hidden="true">search_off</mat-icon>
+        <p class="cf-state-title">Demande introuvable</p>
+        <a mat-flat-button routerLink="/client/demandes">Retour à mes demandes</a>
+      </div>
+    } @else {
+      <app-error-state
+        title="Impossible de charger la demande"
+        [message]="loadErrorMessage()"
+        (retry)="application.reload()"
+      />
+    }
+  } @else if (!detail()) {
+    <app-loading-state label="Chargement de la demande…" />
+  } @else {
+    @let d = detail()!;
+    @if (application.isLoading() || busy()) {
+      <mat-progress-bar mode="indeterminate" aria-label="Actualisation" />
+    }
+    <header class="cf-page-header">
+      <div>
+        <h1>Demande {{ d.reference }}</h1>
+        <p class="cf-muted">
+          {{ d.productType | label: 'product' }} · créée le {{ d.createdAt | date: 'dd/MM/yyyy' }}
+        </p>
+      </div>
+      <app-status-badge data-testid="status" [status]="d.status" />
+      <span class="cf-spacer"></span>
+      @if (d.status === 'DRAFT') {
+        <a mat-flat-button [routerLink]="['/client/demandes', d.id, 'modifier']">
+          <mat-icon aria-hidden="true">edit</mat-icon> Reprendre la demande
+        </a>
+      } @else if (canEdit()) {
+        <a mat-stroked-button [routerLink]="['/client/demandes', d.id, 'modifier']">
+          <mat-icon aria-hidden="true">edit</mat-icon> Modifier
+        </a>
+      }
+      @if (canCancel()) {
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="cancel()"
+          [disabled]="busy()"
+          data-testid="cancel-application"
+        >
+          <mat-icon aria-hidden="true">block</mat-icon> Annuler la demande
+        </button>
+      }
+    </header>
+
+    @switch (d.status) {
+      @case ('DRAFT') {
+        <div class="cf-alert cf-alert-info">
+          <mat-icon aria-hidden="true">edit_note</mat-icon>
+          <p>
+            Ce brouillon n'a pas encore été soumis. Complétez-le puis soumettez-le pour lancer
+            l'étude.
+          </p>
+        </div>
+      }
+      @case ('SUBMITTED') {
+        <div class="cf-alert cf-alert-info">
+          <mat-icon aria-hidden="true">hourglass_top</mat-icon>
+          <p>Votre demande a été transmise. Elle sera prise en charge par un analyste.</p>
+        </div>
+      }
+      @case ('UNDER_REVIEW') {
+        <div class="cf-alert cf-alert-info">
+          <mat-icon aria-hidden="true">manage_search</mat-icon>
+          <p>Un analyste étudie actuellement votre dossier.</p>
+        </div>
+      }
+      @case ('APPROVED') {
+        <div class="cf-alert cf-alert-success" role="status">
+          <mat-icon aria-hidden="true">check_circle</mat-icon>
+          <div>
+            <p>
+              <strong>Votre demande a été approuvée</strong
+              >{{ d.decidedAt ? ' le ' + (d.decidedAt | date: 'dd/MM/yyyy') : '' }}.
+            </p>
+            @if (d.decisionComment) {
+              <p class="cf-pre">{{ d.decisionComment }}</p>
+            }
+          </div>
+        </div>
+      }
+      @case ('REJECTED') {
+        <div class="cf-alert cf-alert-danger" role="status">
+          <mat-icon aria-hidden="true">cancel</mat-icon>
+          <div>
+            <p>
+              <strong>Votre demande n'a pas été retenue</strong
+              >{{ d.decidedAt ? ' le ' + (d.decidedAt | date: 'dd/MM/yyyy') : '' }}.
+            </p>
+            @if (d.decisionComment) {
+              <p class="cf-pre">{{ d.decisionComment }}</p>
+            }
+          </div>
+        </div>
+      }
+    }
+
+    @if (d.status === 'INFO_REQUESTED') {
+      <section
+        class="cf-card cf-info-request"
+        aria-labelledby="complement-title"
+        data-testid="info-request"
+      >
+        <h2 id="complement-title">
+          <mat-icon aria-hidden="true">help_outline</mat-icon> Compléments demandés par l'analyste
+        </h2>
+        @if (infoRequest()) {
+          <blockquote class="cf-timeline-comment">{{ infoRequest() }}</blockquote>
+        }
+        <p>
+          Déposez les pièces demandées ci-dessous (ou modifiez votre demande), puis renvoyez votre
+          dossier.
+        </p>
+        <app-document-uploader
+          [applicationId]="d.id"
+          [documents]="d.documents"
+          (uploaded)="onUploaded($event)"
+          (removed)="onRemoved($event)"
+        />
+        <div class="cf-actions">
+          <a mat-stroked-button [routerLink]="['/client/demandes', d.id, 'modifier']"
+            >Modifier montant ou durée</a
+          >
+          <button
+            mat-flat-button
+            type="button"
+            (click)="resubmit()"
+            [disabled]="busy() || missingDocuments().length > 0"
+            data-testid="resubmit"
+          >
+            <mat-icon aria-hidden="true">send</mat-icon> Renvoyer mon dossier
+          </button>
+        </div>
+      </section>
+    }
+
+    <div class="cf-grid-2 cf-detail-grid">
+      <section class="cf-card" aria-labelledby="demande-title">
+        <h2 id="demande-title">Votre demande</h2>
+        <dl class="cf-dl">
+          <dt>Produit</dt>
+          <dd>{{ d.productType | label: 'product' }}</dd>
+          <dt>Montant</dt>
+          <dd>{{ d.amount | mad }}</dd>
+          <dt>Durée</dt>
+          <dd>{{ d.durationMonths }} mois</dd>
+          <dt>Objet</dt>
+          <dd class="cf-pre">{{ d.purpose || '—' }}</dd>
+          <dt>Soumise le</dt>
+          <dd>{{ d.submittedAt ? (d.submittedAt | date: 'dd/MM/yyyy à HH:mm') : '—' }}</dd>
+        </dl>
+      </section>
+
+      <section class="cf-card" aria-labelledby="conditions-title">
+        <h2 id="conditions-title">Conditions</h2>
+        @if (isFrozen()) {
+          <dl class="cf-dl" data-testid="frozen-terms">
+            <dt>Taux annuel</dt>
+            <dd>{{ (d.annualRate ?? 0) / 100 | percent: '1.1-2' }}</dd>
+            <dt>Mensualité</dt>
+            <dd>{{ d.monthlyPayment | mad: 2 }}</dd>
+            <dt>Coût total</dt>
+            <dd>{{ d.totalCost | mad: 2 }}</dd>
+            @if (d.debtRatio !== null && d.debtRatio !== undefined) {
+              <dt>Endettement</dt>
+              <dd>{{ d.debtRatio | percent: '1.0-1' }}</dd>
+            }
+          </dl>
+          <p class="cf-muted">Chiffres figés lors de la soumission.</p>
+        } @else {
+          <p class="cf-muted">
+            Le taux, la mensualité et l'endettement seront calculés et figés à la soumission.
+          </p>
+        }
+      </section>
+    </div>
+
+    @if (d.status !== 'INFO_REQUESTED') {
+      <section class="cf-card cf-section" aria-labelledby="pieces-title">
+        <h2 id="pieces-title">Pièces justificatives</h2>
+        @if (d.status === 'DRAFT') {
+          <app-document-uploader
+            [applicationId]="d.id"
+            [documents]="d.documents"
+            (uploaded)="onUploaded($event)"
+            (removed)="onRemoved($event)"
+          />
+        } @else {
+          <app-document-list
+            [documents]="d.documents"
+            [busyId]="busyDocId()"
+            (download)="download($event)"
+          />
+        }
+      </section>
+    }
+
+    <section class="cf-card cf-section" aria-labelledby="historique-title">
+      <h2 id="historique-title">Historique</h2>
+      <app-timeline [events]="d.events" />
+    </section>
+  }
+</section>

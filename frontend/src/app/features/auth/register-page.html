@@ -1,0 +1,139 @@
+<section class="cf-page cf-auth-page">
+  <div class="cf-card cf-auth-card cf-auth-card-wide">
+    <h1>Créer un compte client</h1>
+    <p class="cf-muted">
+      Quelques informations suffisent ; votre profil financier sera demandé ensuite.
+    </p>
+
+    @if (serverErrors().length) {
+      <div class="cf-alert cf-alert-danger" role="alert" data-testid="register-errors">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        <div>
+          @for (message of serverErrors(); track $index) {
+            <p>{{ message }}</p>
+          }
+        </div>
+      </div>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <div class="cf-form-grid">
+        <mat-form-field>
+          <mat-label>Prénom</mat-label>
+          <input matInput formControlName="firstName" autocomplete="given-name" required />
+          @if (form.controls.firstName.hasError('required')) {
+            <mat-error>Le prénom est obligatoire.</mat-error>
+          } @else if (form.controls.firstName.hasError('pattern')) {
+            <mat-error>Lettres, espaces, tirets et apostrophes uniquement.</mat-error>
+          } @else if (form.controls.firstName.hasError('server')) {
+            <mat-error>{{ form.controls.firstName.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field>
+          <mat-label>Nom</mat-label>
+          <input matInput formControlName="lastName" autocomplete="family-name" required />
+          @if (form.controls.lastName.hasError('required')) {
+            <mat-error>Le nom est obligatoire.</mat-error>
+          } @else if (form.controls.lastName.hasError('pattern')) {
+            <mat-error>Lettres, espaces, tirets et apostrophes uniquement.</mat-error>
+          } @else if (form.controls.lastName.hasError('server')) {
+            <mat-error>{{ form.controls.lastName.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field class="cf-full">
+          <mat-label>Adresse e-mail</mat-label>
+          <input matInput type="email" formControlName="email" autocomplete="email" required />
+          @if (form.controls.email.hasError('required')) {
+            <mat-error>L'adresse e-mail est obligatoire.</mat-error>
+          } @else if (form.controls.email.hasError('email')) {
+            <mat-error>Adresse e-mail invalide.</mat-error>
+          } @else if (form.controls.email.hasError('server')) {
+            <mat-error data-testid="email-server-error">{{
+              form.controls.email.getError('server')
+            }}</mat-error>
+          }
+        </mat-form-field>
+        <mat-form-field class="cf-full">
+          <mat-label>Mot de passe</mat-label>
+          <input
+            matInput
+            [type]="hidePassword() ? 'password' : 'text'"
+            formControlName="password"
+            autocomplete="new-password"
+            required
+            aria-describedby="password-rules"
+          />
+          <button
+            mat-icon-button
+            matSuffix
+            type="button"
+            (click)="hidePassword.set(!hidePassword())"
+            [attr.aria-label]="
+              hidePassword() ? 'Afficher le mot de passe' : 'Masquer le mot de passe'
+            "
+            [attr.aria-pressed]="!hidePassword()"
+          >
+            <mat-icon>{{ hidePassword() ? 'visibility' : 'visibility_off' }}</mat-icon>
+          </button>
+          @if (form.controls.password.hasError('required')) {
+            <mat-error>Le mot de passe est obligatoire.</mat-error>
+          } @else if (form.controls.password.hasError('passwordPolicy')) {
+            <mat-error>Le mot de passe ne respecte pas les règles ci-dessous.</mat-error>
+          } @else if (form.controls.password.hasError('server')) {
+            <mat-error>{{ form.controls.password.getError('server') }}</mat-error>
+          }
+        </mat-form-field>
+        <ul
+          id="password-rules"
+          class="cf-password-rules cf-full"
+          aria-label="Règles du mot de passe"
+        >
+          @for (rule of rules(); track rule.label) {
+            <li [class.cf-ok]="rule.ok">
+              {{ rule.ok ? '✓' : '•' }} {{ rule.label
+              }}<span class="cf-visually-hidden">{{
+                rule.ok ? ' : respecté' : ' : non respecté'
+              }}</span>
+            </li>
+          }
+        </ul>
+        <mat-form-field class="cf-full">
+          <mat-label>Confirmer le mot de passe</mat-label>
+          <input
+            matInput
+            [type]="hidePassword() ? 'password' : 'text'"
+            formControlName="confirmPassword"
+            autocomplete="new-password"
+            required
+          />
+          @if (form.controls.confirmPassword.hasError('required')) {
+            <mat-error>Confirmez le mot de passe.</mat-error>
+          }
+        </mat-form-field>
+        @if (form.hasError('mismatch') && form.controls.confirmPassword.touched) {
+          <p class="cf-full cf-alert cf-alert-danger" role="alert">
+            Les mots de passe ne correspondent pas.
+          </p>
+        }
+      </div>
+
+      <button
+        mat-flat-button
+        type="submit"
+        class="cf-auth-submit cf-field-full"
+        [disabled]="submitting()"
+      >
+        @if (submitting()) {
+          <mat-progress-spinner mode="indeterminate" diameter="20" aria-hidden="true" />
+          Création du compte…
+        } @else {
+          Créer mon compte
+        }
+      </button>
+    </form>
+
+    <p class="cf-auth-switch">
+      Déjà inscrit ? <a routerLink="/connexion" [queryParams]="loginQueryParams()">Se connecter</a>
+    </p>
+  </div>
+</section>

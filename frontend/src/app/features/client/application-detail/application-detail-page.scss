@@ -1,0 +1,25 @@
+.cf-back {
+  margin-bottom: 8px;
+}
+
+.cf-detail-grid,
+.cf-section,
+.cf-info-request {
+  margin-top: 16px;
+}
+
+.cf-info-request {
+  border-color: var(--cf-warning);
+
+  h2 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--cf-warning);
+  }
+}
+
+.cf-pre {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}

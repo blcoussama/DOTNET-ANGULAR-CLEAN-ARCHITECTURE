@@ -1,0 +1,139 @@
+<section class="cf-hero">
+  <div class="cf-page cf-hero-inner">
+    <div class="cf-hero-text">
+      <h1>Votre crédit, simulé en quelques secondes</h1>
+      <p>
+        Estimez votre mensualité, puis déposez votre demande en ligne avec vos justificatifs. Un
+        analyste étudie chaque dossier : la décision est toujours humaine et motivée.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section class="cf-page cf-simulator" aria-labelledby="simulateur-titre">
+  <h2 id="simulateur-titre">Simulateur de crédit</h2>
+
+  @if (products.isLoading() && !products.hasValue()) {
+    <app-loading-state label="Chargement des offres de crédit…" />
+  } @else if (products.error()) {
+    <app-error-state
+      title="Les offres de crédit sont indisponibles"
+      [message]="errorMessage(products.error())"
+      (retry)="products.reload()"
+    />
+  } @else if (selectedProduct(); as product) {
+    <div class="cf-sim-layout">
+      <div class="cf-card cf-stack">
+        <div>
+          <p id="product-label" class="cf-field-label">Type de crédit</p>
+          <mat-button-toggle-group
+            class="cf-product-toggle"
+            aria-labelledby="product-label"
+            [value]="product.type"
+            (change)="selectProduct($event.value)"
+          >
+            @for (p of products.value(); track p.type) {
+              <mat-button-toggle [value]="p.type">
+                <mat-icon aria-hidden="true">{{ icons[p.type] }}</mat-icon>
+                {{ labels[p.type] }}
+              </mat-button-toggle>
+            }
+          </mat-button-toggle-group>
+          <p class="cf-muted cf-product-desc">
+            {{ descriptions[product.type] }} Taux annuel indicatif :
+            <strong>{{ product.annualRate | number: '1.1-2' }} %</strong>, de
+            {{ product.minAmount | mad }} à {{ product.maxAmount | mad }}.
+          </p>
+        </div>
+
+        <app-loan-fields
+          [amount]="loan.controls.amount"
+          [duration]="loan.controls.durationMonths"
+          [product]="product"
+          [durationValue]="loan.controls.durationMonths.value"
+          idPrefix="sim"
+        />
+
+        <mat-expansion-panel class="cf-budget-panel">
+          <mat-expansion-panel-header>
+            <mat-panel-title>Estimer mon taux d'endettement</mat-panel-title>
+          </mat-expansion-panel-header>
+          <form class="cf-form-grid" [formGroup]="budget" (submit)="$event.preventDefault()">
+            <mat-form-field>
+              <mat-label>Revenu mensuel net (MAD)</mat-label>
+              <input
+                matInput
+                type="number"
+                inputmode="decimal"
+                min="0"
+                formControlName="monthlyIncome"
+              />
+              @if (budget.controls.monthlyIncome.invalid) {
+                <mat-error>Le revenu doit être supérieur à 0.</mat-error>
+              }
+            </mat-form-field>
+            <mat-form-field>
+              <mat-label>Mensualités en cours (MAD)</mat-label>
+              <input
+                matInput
+                type="number"
+                inputmode="decimal"
+                min="0"
+                formControlName="monthlyCharges"
+              />
+              @if (budget.controls.monthlyCharges.invalid) {
+                <mat-error>Les charges ne peuvent pas être négatives.</mat-error>
+              }
+            </mat-form-field>
+          </form>
+          <p class="cf-muted">Ces informations ne sont pas enregistrées.</p>
+        </mat-expansion-panel>
+      </div>
+
+      <aside class="cf-card cf-result-card" aria-label="Résultat de la simulation">
+        <app-simulation-summary [state]="simulation()" [amount]="request()?.amount ?? null" />
+        @if (!auth.isAuthenticated() || auth.hasRole('Client')) {
+          <button
+            mat-flat-button
+            type="button"
+            class="cf-cta"
+            (click)="apply()"
+            [disabled]="!request()"
+          >
+            <mat-icon aria-hidden="true">send</mat-icon>
+            Déposer ma demande
+          </button>
+        }
+        @if (!auth.isAuthenticated()) {
+          <p class="cf-muted cf-cta-hint">Création de compte gratuite, sans engagement.</p>
+        }
+      </aside>
+    </div>
+  } @else {
+    <p class="cf-muted">Aucune offre de crédit n'est disponible pour le moment.</p>
+  }
+</section>
+
+<section class="cf-page cf-features" aria-label="Pourquoi CreditFlow">
+  <div class="cf-grid">
+    <article class="cf-card">
+      <mat-icon aria-hidden="true">bolt</mat-icon>
+      <h3>Simulation instantanée</h3>
+      <p class="cf-muted">
+        Mensualité, coût total et endettement calculés en direct selon les taux en vigueur.
+      </p>
+    </article>
+    <article class="cf-card">
+      <mat-icon aria-hidden="true">cloud_upload</mat-icon>
+      <h3>Dossier 100 % en ligne</h3>
+      <p class="cf-muted">
+        Déposez vos justificatifs et suivez chaque étape de l'instruction de votre demande.
+      </p>
+    </article>
+    <article class="cf-card">
+      <mat-icon aria-hidden="true">verified_user</mat-icon>
+      <h3>Décision humaine</h3>
+      <p class="cf-muted">Le score de risque aide l'analyste ; il ne décide jamais à sa place.</p>
+    </article>
+  </div>
+</section>

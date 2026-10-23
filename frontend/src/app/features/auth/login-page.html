@@ -1,0 +1,65 @@
+<section class="cf-page cf-auth-page">
+  <div class="cf-card cf-auth-card">
+    <h1>Connexion</h1>
+    <p class="cf-muted">Accédez à votre espace CreditFlow.</p>
+
+    @if (errorText()) {
+      <div class="cf-alert cf-alert-danger" role="alert" data-testid="login-error">
+        <mat-icon aria-hidden="true">error_outline</mat-icon>
+        <p>{{ errorText() }}</p>
+      </div>
+    }
+
+    <form [formGroup]="form" (ngSubmit)="submit()" novalidate class="cf-stack">
+      <mat-form-field>
+        <mat-label>Adresse e-mail</mat-label>
+        <input matInput type="email" formControlName="email" autocomplete="username" required />
+        @if (form.controls.email.hasError('required')) {
+          <mat-error>L'adresse e-mail est obligatoire.</mat-error>
+        } @else if (form.controls.email.hasError('email')) {
+          <mat-error>Adresse e-mail invalide.</mat-error>
+        }
+      </mat-form-field>
+
+      <mat-form-field>
+        <mat-label>Mot de passe</mat-label>
+        <input
+          matInput
+          [type]="hidePassword() ? 'password' : 'text'"
+          formControlName="password"
+          autocomplete="current-password"
+          required
+        />
+        <button
+          mat-icon-button
+          matSuffix
+          type="button"
+          (click)="hidePassword.set(!hidePassword())"
+          [attr.aria-label]="
+            hidePassword() ? 'Afficher le mot de passe' : 'Masquer le mot de passe'
+          "
+          [attr.aria-pressed]="!hidePassword()"
+        >
+          <mat-icon>{{ hidePassword() ? 'visibility' : 'visibility_off' }}</mat-icon>
+        </button>
+        @if (form.controls.password.hasError('required')) {
+          <mat-error>Le mot de passe est obligatoire.</mat-error>
+        }
+      </mat-form-field>
+
+      <button mat-flat-button type="submit" class="cf-auth-submit" [disabled]="submitting()">
+        @if (submitting()) {
+          <mat-progress-spinner mode="indeterminate" diameter="20" aria-hidden="true" />
+          Connexion…
+        } @else {
+          Se connecter
+        }
+      </button>
+    </form>
+
+    <p class="cf-auth-switch">
+      Pas encore de compte ?
+      <a routerLink="/inscription" [queryParams]="registerQueryParams()">Créer un compte</a>
+    </p>
+  </div>
+</section>

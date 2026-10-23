@@ -1,0 +1,97 @@
+@if (editable() && missing().length) {
+  <div class="cf-alert cf-alert-info" data-testid="missing-docs">
+    <mat-icon aria-hidden="true">info</mat-icon>
+    <p>
+      Pièces obligatoires manquantes :
+      @for (type of missing(); track type; let last = $last) {
+        <strong>{{ labels[type] }}</strong
+        >{{ last ? '.' : ', ' }}
+      }
+    </p>
+  </div>
+}
+
+<div class="cf-uploader-grid">
+  @for (type of types; track type) {
+    <section class="cf-slot" [attr.aria-labelledby]="'slot-' + type">
+      <header class="cf-row">
+        <h3 [id]="'slot-' + type">{{ labels[type] }}</h3>
+        @if (required.has(type)) {
+          <span
+            class="cf-badge"
+            [class]="
+              byType()[type].length
+                ? 'cf-badge cf-status-approved'
+                : 'cf-badge cf-status-info-requested'
+            "
+          >
+            {{ byType()[type].length ? 'Fournie' : 'Obligatoire' }}
+          </span>
+        } @else {
+          <span class="cf-badge">Facultative</span>
+        }
+      </header>
+
+      <app-document-list
+        [documents]="byType()[type]"
+        [deletable]="editable()"
+        [busyId]="busyId()"
+        emptyMessage="Aucun fichier."
+        (download)="download($event)"
+        (remove)="remove($event)"
+      />
+
+      @if (editable()) {
+        @if (uploads()[type]; as upload) {
+          <div class="cf-upload-progress" role="status">
+            <span>Envoi de {{ upload.fileName }}… {{ upload.percent }} %</span>
+            <mat-progress-bar
+              mode="determinate"
+              [value]="upload.percent"
+              [attr.aria-label]="'Progression de l’envoi de ' + upload.fileName"
+            />
+          </div>
+        } @else {
+          <div
+            class="cf-dropzone"
+            [class.cf-dropzone-active]="dragOver() === type"
+            (dragover)="onDragOver($event, type)"
+            (dragleave)="onDragLeave(type)"
+            (drop)="onDrop($event, type)"
+            [attr.data-testid]="'dropzone-' + type"
+          >
+            <mat-icon aria-hidden="true">upload_file</mat-icon>
+            <span>Glissez-déposez un fichier ici ou</span>
+            <button
+              mat-stroked-button
+              type="button"
+              (click)="fileInput.click()"
+              [attr.aria-describedby]="'rules-' + type"
+            >
+              Parcourir…
+            </button>
+            <input
+              #fileInput
+              type="file"
+              class="cf-visually-hidden"
+              tabindex="-1"
+              multiple
+              [accept]="accept"
+              [attr.aria-label]="'Choisir un fichier : ' + labels[type]"
+              (change)="onFileInput($event, type)"
+              [attr.data-testid]="'file-input-' + type"
+            />
+            <span [id]="'rules-' + type" class="cf-dropzone-rules"
+              >PDF, JPEG ou PNG — 5 Mo maximum</span
+            >
+          </div>
+        }
+        @if (errors()[type]; as error) {
+          <p class="cf-alert cf-alert-danger" role="alert" [attr.data-testid]="'error-' + type">
+            {{ error }}
+          </p>
+        }
+      }
+    </section>
+  }
+</div>

@@ -1,0 +1,310 @@
+<section class="cf-page">
+  <header class="cf-page-header">
+    <div>
+      <h1>
+        {{
+          draft()
+            ? (isInfoRequested() ? 'Compléter la demande ' : 'Brouillon ') + draft()!.reference
+            : 'Nouvelle demande de crédit'
+        }}
+      </h1>
+      <p class="cf-muted">
+        Quatre étapes : produit, montant et durée, pièces justificatives, récapitulatif.
+      </p>
+    </div>
+    <span class="cf-spacer"></span>
+    <a mat-button routerLink="/client/demandes">
+      <mat-icon aria-hidden="true">arrow_back</mat-icon> Mes demandes
+    </a>
+  </header>
+
+  @if (loading()) {
+    <app-loading-state label="Préparation de votre demande…" />
+  } @else if (loadError()) {
+    <app-error-state
+      title="Impossible de préparer la demande"
+      [message]="loadError()"
+      (retry)="load()"
+    />
+  } @else if (notEditable(); as app) {
+    <div class="cf-card cf-state">
+      <mat-icon class="cf-state-icon" aria-hidden="true">lock</mat-icon>
+      <p class="cf-state-title">La demande {{ app.reference }} ne peut plus être modifiée.</p>
+      <a mat-flat-button [routerLink]="['/client/demandes', app.id]">Voir la demande</a>
+    </div>
+  } @else if (products().length === 0) {
+    <div class="cf-card cf-state">
+      <p class="cf-state-title">Aucun produit de crédit n'est disponible pour le moment.</p>
+    </div>
+  } @else {
+    @if (!profileComplete()) {
+      <div class="cf-alert cf-alert-warning" role="status" data-testid="profile-warning">
+        <mat-icon aria-hidden="true">assignment_late</mat-icon>
+        <p>
+          Votre profil financier est incomplet : vous pourrez préparer la demande, mais pas la
+          soumettre.
+          <a routerLink="/client/profil" [queryParams]="{ returnUrl: profileLink() }"
+            >Compléter mon profil</a
+          >
+        </p>
+      </div>
+    }
+
+    <mat-stepper
+      #stepper
+      linear
+      [orientation]="isHandset() ? 'vertical' : 'horizontal'"
+      class="cf-card cf-stepper"
+      aria-label="Étapes de la demande"
+    >
+      <!-- Étape 1 : produit -->
+      <mat-step [stepControl]="productForm" label="Produit" [editable]="true">
+        <form [formGroup]="productForm" class="cf-step-body">
+          <h2 class="cf-step-title">Quel crédit souhaitez-vous ?</h2>
+          <mat-radio-group
+            formControlName="productType"
+            class="cf-product-options"
+            aria-label="Type de crédit"
+          >
+            @for (p of products(); track p.type) {
+              <div
+                class="cf-product-option"
+                [class.cf-product-selected]="productForm.controls.productType.value === p.type"
+              >
+                <mat-radio-button [value]="p.type" [attr.data-testid]="'product-' + p.type">
+                  <span class="cf-product-name">
+                    <mat-icon aria-hidden="true">{{ icons[p.type] }}</mat-icon> {{ labels[p.type] }}
+                  </span>
+                </mat-radio-button>
+                <span class="cf-muted">{{ descriptions[p.type] }}</span>
+                <span class="cf-product-terms">
+                  {{ p.annualRate | number: '1.1-2' }} % · {{ p.minAmount | mad }} –
+                  {{ p.maxAmount | mad }} · {{ p.minDurationMonths }} à
+                  {{ p.maxDurationMonths }} mois
+                </span>
+              </div>
+            }
+          </mat-radio-group>
+          @if (productForm.controls.productType.touched && productForm.invalid) {
+            <p class="cf-alert cf-alert-danger" role="alert">Choisissez un type de crédit.</p>
+          }
+          <div class="cf-actions">
+            <button
+              mat-flat-button
+              matStepperNext
+              type="button"
+              (click)="productForm.markAllAsTouched()"
+            >
+              Continuer
+            </button>
+          </div>
+        </form>
+      </mat-step>
+
+      <!-- Étape 2 : montant, durée, objet -->
+      <mat-step label="Montant et durée" [completed]="draftSynced()">
+        @if (selectedProduct(); as product) {
+          <div class="cf-step-body cf-loan-layout">
+            <form [formGroup]="loanForm" class="cf-stack" (ngSubmit)="saveDraftAndContinue()">
+              <h2 class="cf-step-title">
+                {{ labels[product.type] }} — {{ product.annualRate | number: '1.1-2' }} %
+              </h2>
+              <app-loan-fields
+                [amount]="loanForm.controls.amount"
+                [duration]="loanForm.controls.durationMonths"
+                [product]="product"
+                [durationValue]="loanForm.controls.durationMonths.value"
+                idPrefix="app"
+              />
+              <mat-form-field class="cf-field-full">
+                <mat-label>Objet du financement</mat-label>
+                <textarea
+                  matInput
+                  formControlName="purpose"
+                  rows="3"
+                  maxlength="500"
+                  required
+                ></textarea>
+                <mat-hint align="end">{{ loanForm.controls.purpose.value.length }} / 500</mat-hint>
+                @if (loanForm.controls.purpose.hasError('required')) {
+                  <mat-error>Décrivez brièvement votre projet.</mat-error>
+                } @else if (loanForm.controls.purpose.hasError('minlength')) {
+                  <mat-error>5 caractères minimum.</mat-error>
+                } @else if (loanForm.controls.purpose.hasError('server')) {
+                  <mat-error>{{ loanForm.controls.purpose.getError('server') }}</mat-error>
+                }
+              </mat-form-field>
+              @if (stepError()) {
+                <p class="cf-alert cf-alert-danger" role="alert">{{ stepError() }}</p>
+              }
+              <div class="cf-actions">
+                <button mat-button matStepperPrevious type="button">Retour</button>
+                <button
+                  mat-flat-button
+                  type="submit"
+                  [disabled]="savingDraft()"
+                  data-testid="save-draft"
+                >
+                  {{
+                    savingDraft()
+                      ? 'Enregistrement…'
+                      : draftSynced()
+                        ? 'Continuer'
+                        : 'Enregistrer et continuer'
+                  }}
+                </button>
+              </div>
+            </form>
+            <aside class="cf-sim-panel" aria-label="Simulation">
+              <app-simulation-summary
+                [state]="simulation()"
+                [amount]="simulationRequest()?.amount ?? null"
+              />
+              @if (!profile()?.monthlyIncome) {
+                <p class="cf-muted">
+                  Renseignez vos revenus dans votre profil pour calculer votre taux d'endettement.
+                </p>
+              }
+            </aside>
+          </div>
+        }
+      </mat-step>
+
+      <!-- Étape 3 : pièces -->
+      <mat-step label="Pièces justificatives" [completed]="missingDocuments().length === 0">
+        <div class="cf-step-body">
+          <h2 class="cf-step-title">Vos justificatifs</h2>
+          <p class="cf-muted">
+            Une carte d'identité et un bulletin de salaire récent sont obligatoires.
+          </p>
+          @if (draft(); as d) {
+            <app-document-uploader
+              [applicationId]="d.id"
+              [documents]="documents()"
+              (uploaded)="onUploaded($event)"
+              (removed)="onRemoved($event)"
+            />
+          }
+          <div class="cf-actions">
+            <button mat-button matStepperPrevious type="button">Retour</button>
+            <button
+              mat-flat-button
+              matStepperNext
+              type="button"
+              [disabled]="missingDocuments().length > 0"
+            >
+              Continuer
+            </button>
+          </div>
+        </div>
+      </mat-step>
+
+      <!-- Étape 4 : récapitulatif -->
+      <mat-step label="Récapitulatif">
+        <div class="cf-step-body">
+          <h2 class="cf-step-title">Vérifiez votre demande</h2>
+          <div class="cf-grid-2">
+            <section class="cf-card" aria-labelledby="recap-demande">
+              <h3 id="recap-demande">Demande</h3>
+              <dl class="cf-dl">
+                <dt>Produit</dt>
+                <dd>{{ productType() | label: 'product' }}</dd>
+                <dt>Montant</dt>
+                <dd>{{ loanForm.controls.amount.value | mad }}</dd>
+                <dt>Durée</dt>
+                <dd>{{ loanForm.controls.durationMonths.value }} mois</dd>
+                <dt>Objet</dt>
+                <dd class="cf-pre">{{ loanForm.controls.purpose.value }}</dd>
+              </dl>
+            </section>
+            <section class="cf-card" aria-labelledby="recap-conditions">
+              <h3 id="recap-conditions">Conditions estimées</h3>
+              @if (simulation().result; as r) {
+                <dl class="cf-dl">
+                  <dt>Taux annuel</dt>
+                  <dd>{{ r.annualRate / 100 | percent: '1.1-2' }}</dd>
+                  <dt>Mensualité</dt>
+                  <dd data-testid="recap-payment">{{ r.monthlyPayment | mad: 2 }}</dd>
+                  <dt>Coût total</dt>
+                  <dd>{{ r.totalCost | mad: 2 }}</dd>
+                  @if (r.debtRatio !== null && r.debtRatio !== undefined) {
+                    <dt>Endettement</dt>
+                    <dd>{{ r.debtRatio | percent: '1.0-1' }}</dd>
+                  }
+                </dl>
+                @if (overThreshold()) {
+                  <p class="cf-alert cf-alert-warning" role="status">
+                    Endettement supérieur à 40 % : la demande risque d'être jugée défavorable.
+                  </p>
+                }
+              } @else {
+                <p class="cf-muted">Simulation indisponible.</p>
+              }
+              <p class="cf-muted cf-small">
+                Le taux, la mensualité et l'endettement sont figés au moment de la soumission.
+              </p>
+            </section>
+          </div>
+
+          <section class="cf-card cf-recap-docs" aria-labelledby="recap-docs">
+            <h3 id="recap-docs">Pièces jointes ({{ documents().length }})</h3>
+            <ul>
+              @for (doc of documents(); track doc.id) {
+                <li>{{ doc.type | label: 'document' }} — {{ doc.fileName }}</li>
+              } @empty {
+                <li>Aucune pièce.</li>
+              }
+            </ul>
+          </section>
+
+          @if (!profileComplete()) {
+            <p class="cf-alert cf-alert-danger" role="alert">
+              Profil financier incomplet :
+              <a routerLink="/client/profil" [queryParams]="{ returnUrl: profileLink() }"
+                >complétez-le</a
+              >
+              avant de soumettre.
+            </p>
+          }
+          @if (missingDocuments().length) {
+            <p class="cf-alert cf-alert-danger" role="alert">Des pièces obligatoires manquent.</p>
+          }
+
+          <form [formGroup]="confirmForm" (ngSubmit)="submit()">
+            <mat-checkbox formControlName="certify" data-testid="certify">
+              Je certifie l'exactitude des informations fournies et accepte leur traitement pour
+              l'étude de ma demande.
+            </mat-checkbox>
+            @if (confirmForm.controls.certify.touched && confirmForm.invalid) {
+              <p class="cf-alert cf-alert-danger" role="alert">
+                Vous devez cocher cette case pour soumettre.
+              </p>
+            }
+            @if (stepError()) {
+              <p class="cf-alert cf-alert-danger" role="alert">{{ stepError() }}</p>
+            }
+            <div class="cf-actions">
+              <button mat-button matStepperPrevious type="button">Retour</button>
+              <a mat-stroked-button routerLink="/client/demandes">Enregistrer et quitter</a>
+              <button
+                mat-flat-button
+                type="submit"
+                data-testid="submit-application"
+                [disabled]="submitting() || !profileComplete() || missingDocuments().length > 0"
+              >
+                <mat-icon aria-hidden="true">send</mat-icon>
+                {{
+                  submitting()
+                    ? 'Soumission…'
+                    : isInfoRequested()
+                      ? 'Renvoyer la demande'
+                      : 'Soumettre la demande'
+                }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </mat-step>
+    </mat-stepper>
+  }
+</section>

@@ -1,0 +1,118 @@
+<section class="cf-page">
+  <header class="cf-page-header">
+    <div>
+      <h1>Utilisateurs</h1>
+      <p class="cf-muted">Comptes clients et collaborateurs de la banque.</p>
+    </div>
+    <span class="cf-spacer"></span>
+    <button mat-flat-button type="button" (click)="openCreate()" data-testid="create-user">
+      <mat-icon aria-hidden="true">person_add</mat-icon> Créer un analyste
+    </button>
+  </header>
+
+  <div class="cf-filters" role="search" aria-label="Filtrer les utilisateurs">
+    <mat-form-field>
+      <mat-label>Recherche</mat-label>
+      <mat-icon matPrefix aria-hidden="true">search</mat-icon>
+      <input matInput [formControl]="searchControl" placeholder="Nom ou e-mail" />
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Rôle</mat-label>
+      <mat-select [value]="query().role" (selectionChange)="filterRole($event.value)">
+        <mat-option [value]="null">Tous</mat-option>
+        @for (r of roles; track r) {
+          <mat-option [value]="r">{{ roleLabels[r] }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  @if (users.error()) {
+    <app-error-state
+      title="Impossible de charger les utilisateurs"
+      [message]="errorMessage(users.error())"
+      (retry)="users.reload()"
+    />
+  } @else if (!data() && users.isLoading()) {
+    <app-loading-state label="Chargement des utilisateurs…" />
+  } @else {
+    <div class="cf-table-wrapper">
+      @if (users.isLoading()) {
+        <mat-progress-bar mode="indeterminate" aria-label="Actualisation" />
+      }
+      <table mat-table [dataSource]="rows()" aria-label="Utilisateurs">
+        <ng-container matColumnDef="name">
+          <th mat-header-cell *matHeaderCellDef scope="col">Nom</th>
+          <td mat-cell *matCellDef="let u">
+            {{ u.firstName }} {{ u.lastName }}
+            @if (isSelf(u)) {
+              <span class="cf-badge cf-status-submitted">Vous</span>
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="email">
+          <th mat-header-cell *matHeaderCellDef scope="col">E-mail</th>
+          <td mat-cell *matCellDef="let u">{{ u.email }}</td>
+        </ng-container>
+        <ng-container matColumnDef="role">
+          <th mat-header-cell *matHeaderCellDef scope="col">Rôle</th>
+          <td mat-cell *matCellDef="let u">
+            @if (u.role === 'Client' || isSelf(u)) {
+              {{ u.role | label: 'role' }}
+            } @else {
+              <mat-form-field class="cf-inline-select" subscriptSizing="dynamic">
+                <mat-select
+                  [value]="u.role"
+                  (selectionChange)="changeRole(u, $event.value)"
+                  [disabled]="pendingId() === u.id"
+                  [attr.aria-label]="'Rôle de ' + u.firstName + ' ' + u.lastName"
+                >
+                  @for (r of staffRoles; track r) {
+                    <mat-option [value]="r">{{ roleLabels[r] }}</mat-option>
+                  }
+                </mat-select>
+              </mat-form-field>
+            }
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="active">
+          <th mat-header-cell *matHeaderCellDef scope="col">Compte actif</th>
+          <td mat-cell *matCellDef="let u">
+            <mat-slide-toggle
+              [checked]="u.isActive"
+              [disabled]="isSelf(u) || pendingId() === u.id"
+              (change)="toggleActive(u, $event.checked)"
+              [attr.aria-label]="
+                (u.isActive ? 'Désactiver ' : 'Activer ') + u.firstName + ' ' + u.lastName
+              "
+            >
+              {{ u.isActive ? 'Actif' : 'Désactivé' }}
+            </mat-slide-toggle>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="createdAt">
+          <th mat-header-cell *matHeaderCellDef scope="col">Créé le</th>
+          <td mat-cell *matCellDef="let u">
+            {{ u.createdAt ? (u.createdAt | date: 'dd/MM/yyyy') : '—' }}
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="columns"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns"></tr>
+        <tr class="mat-row" *matNoDataRow>
+          <td class="mat-cell" [attr.colspan]="columns.length">
+            <app-empty-state icon="person_search" title="Aucun utilisateur trouvé" />
+          </td>
+        </tr>
+      </table>
+    </div>
+    <mat-paginator
+      [length]="total()"
+      [pageIndex]="query().page - 1"
+      [pageSize]="query().pageSize"
+      [pageSizeOptions]="[10, 20, 50]"
+      (page)="onPage($event)"
+      showFirstLastButtons
+      aria-label="Pagination des utilisateurs"
+    />
+  }
+</section>

@@ -1,0 +1,187 @@
+<section class="cf-page">
+  <header class="cf-page-header">
+    <div>
+      <h1>Tableau de bord</h1>
+      <p class="cf-muted">Activité de crédit et qualité du portefeuille de demandes.</p>
+    </div>
+    <span class="cf-spacer"></span>
+    <button
+      mat-stroked-button
+      type="button"
+      (click)="stats.reload()"
+      [disabled]="stats.isLoading()"
+    >
+      <mat-icon aria-hidden="true">refresh</mat-icon> Actualiser
+    </button>
+  </header>
+
+  @if (stats.error()) {
+    <app-error-state
+      title="Indicateurs indisponibles"
+      [message]="errorMessage(stats.error())"
+      (retry)="stats.reload()"
+    />
+  } @else if (!data()) {
+    <app-loading-state label="Calcul des indicateurs…" />
+  } @else {
+    @let d = data()!;
+    @if (stats.isLoading()) {
+      <mat-progress-bar mode="indeterminate" aria-label="Actualisation" />
+    }
+    <div class="cf-kpis" role="list" aria-label="Indicateurs clés">
+      <div class="cf-kpi" role="listitem">
+        <span class="cf-kpi-label">Demandes (hors brouillons)</span>
+        <span class="cf-kpi-value" data-testid="kpi-total">{{
+          d.totalApplications - d.countsByStatus.DRAFT
+        }}</span>
+      </div>
+      <div class="cf-kpi" role="listitem">
+        <span class="cf-kpi-label">À traiter</span>
+        <span class="cf-kpi-value">{{ pending() }}</span>
+      </div>
+      <div class="cf-kpi" role="listitem">
+        <span class="cf-kpi-label">Taux d'approbation</span>
+        <span class="cf-kpi-value" data-testid="kpi-approval">{{
+          d.approvalRate | percent: '1.0-1'
+        }}</span>
+      </div>
+      <div class="cf-kpi" role="listitem">
+        <span class="cf-kpi-label">Montant moyen demandé</span>
+        <span class="cf-kpi-value">{{ d.averageAmount | mad }}</span>
+      </div>
+      <div class="cf-kpi" role="listitem">
+        <span class="cf-kpi-label">Total approuvé</span>
+        <span class="cf-kpi-value">{{ d.totalApprovedAmount | mad }}</span>
+      </div>
+      <div class="cf-kpi" role="listitem">
+        <span class="cf-kpi-label">Délai moyen de traitement</span>
+        <span class="cf-kpi-value">{{ d.averageProcessingDays | number: '1.0-1' }} j</span>
+      </div>
+    </div>
+
+    @if (d.totalApplications === 0) {
+      <app-empty-state
+        icon="query_stats"
+        title="Pas encore de données"
+        message="Les graphiques apparaîtront dès les premières demandes."
+      />
+    } @else {
+      <div class="cf-charts">
+        <figure class="cf-card cf-chart-card">
+          <figcaption><h2>Répartition par statut</h2></figcaption>
+          <div
+            class="cf-chart"
+            role="img"
+            aria-label="Graphique en anneau de la répartition des demandes par statut (détail dans le tableau qui suit)"
+          >
+            @if (statusConfig(); as c) {
+              <canvas baseChart [type]="c.type" [data]="c.data" [options]="c.options"></canvas>
+            }
+          </div>
+          <table class="cf-visually-hidden">
+            <caption>
+              Demandes par statut
+            </caption>
+            <tbody>
+              @for (s of statuses; track s) {
+                <tr>
+                  <th scope="row">{{ statusLabels[s] }}</th>
+                  <td>{{ d.countsByStatus[s] }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </figure>
+
+        <figure class="cf-card cf-chart-card">
+          <figcaption><h2>Tendance sur 6 mois</h2></figcaption>
+          <div
+            class="cf-chart"
+            role="img"
+            aria-label="Courbes mensuelles des demandes soumises, approuvées et refusées (détail dans le tableau qui suit)"
+          >
+            @if (trendConfig(); as c) {
+              <canvas baseChart [type]="c.type" [data]="c.data" [options]="c.options"></canvas>
+            }
+          </div>
+          <table class="cf-visually-hidden">
+            <caption>
+              Tendance mensuelle
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Mois</th>
+                <th scope="col">Soumises</th>
+                <th scope="col">Approuvées</th>
+                <th scope="col">Refusées</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (p of d.monthlyTrend; track p.month) {
+                <tr>
+                  <th scope="row">{{ monthLabel(p.month) }}</th>
+                  <td>{{ p.submitted }}</td>
+                  <td>{{ p.approved }}</td>
+                  <td>{{ p.rejected }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </figure>
+
+        <figure class="cf-card cf-chart-card">
+          <figcaption><h2>Volume par produit</h2></figcaption>
+          <div
+            class="cf-chart"
+            role="img"
+            aria-label="Histogramme du volume et du nombre de demandes par produit (détail dans le tableau qui suit)"
+          >
+            @if (productConfig(); as c) {
+              <canvas baseChart [type]="c.type" [data]="c.data" [options]="c.options"></canvas>
+            }
+          </div>
+          <table class="cf-visually-hidden">
+            <caption>
+              Volume par produit
+            </caption>
+            <tbody>
+              @for (v of d.volumeByProduct; track v.productType) {
+                <tr>
+                  <th scope="row">{{ productLabels[v.productType] }}</th>
+                  <td>{{ v.count }} demandes</td>
+                  <td>{{ v.totalAmount | mad }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </figure>
+
+        <figure class="cf-card cf-chart-card">
+          <figcaption><h2>Répartition des grades de risque</h2></figcaption>
+          <div
+            class="cf-chart"
+            role="img"
+            aria-label="Histogramme du nombre de demandes par grade de risque (détail dans le tableau qui suit)"
+          >
+            @if (gradeConfig(); as c) {
+              <canvas baseChart [type]="c.type" [data]="c.data" [options]="c.options"></canvas>
+            }
+          </div>
+          <table class="cf-visually-hidden">
+            <caption>
+              Demandes par grade
+            </caption>
+            <tbody>
+              @for (g of grades; track g) {
+                <tr>
+                  <th scope="row">Grade {{ g }}</th>
+                  <td>{{ d.gradeDistribution[g] }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </figure>
+      </div>
+    }
+  }
+</section>

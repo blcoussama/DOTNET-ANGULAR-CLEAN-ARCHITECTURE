@@ -1,0 +1,100 @@
+<a class="cf-skip-link" href="#contenu-principal">Aller au contenu principal</a>
+
+<mat-toolbar class="cf-toolbar" role="banner">
+  @if (showSidenav() && isHandset()) {
+    <button
+      mat-icon-button
+      type="button"
+      (click)="toggleMenu()"
+      [attr.aria-expanded]="menuOpen()"
+      aria-controls="cf-sidenav"
+      aria-label="Ouvrir le menu de navigation"
+    >
+      <mat-icon>menu</mat-icon>
+    </button>
+  }
+  <a class="cf-brand" [routerLink]="homeLink()" aria-label="CreditFlow — accueil">
+    <mat-icon aria-hidden="true">account_balance</mat-icon>
+    <span>CreditFlow</span>
+  </a>
+  <span class="cf-spacer"></span>
+
+  @if (auth.isAuthenticated()) {
+    <button
+      mat-button
+      type="button"
+      [matMenuTriggerFor]="userMenu"
+      class="cf-user-button"
+      aria-label="Menu utilisateur"
+    >
+      <span class="cf-avatar" aria-hidden="true">{{ auth.initials() }}</span>
+      <span class="cf-user-name">{{ auth.displayName() }}</span>
+      <mat-icon aria-hidden="true">expand_more</mat-icon>
+    </button>
+    <mat-menu #userMenu="matMenu" xPosition="before">
+      <div class="cf-user-card" role="presentation">
+        <strong>{{ auth.displayName() }}</strong>
+        <span class="cf-muted">{{ auth.user()?.email }}</span>
+        <span class="cf-role-chip">{{ roleLabel() }}</span>
+      </div>
+      <mat-divider />
+      <button mat-menu-item type="button" (click)="logout()" [disabled]="loggingOut()">
+        <mat-icon aria-hidden="true">logout</mat-icon>
+        <span>Se déconnecter</span>
+      </button>
+    </mat-menu>
+  } @else {
+    <nav class="cf-public-nav" aria-label="Navigation publique">
+      <a
+        mat-button
+        routerLink="/"
+        routerLinkActive="cf-active-link"
+        [routerLinkActiveOptions]="{ exact: true }"
+        >Simuler</a
+      >
+      <a mat-button routerLink="/connexion" routerLinkActive="cf-active-link">Connexion</a>
+      <a mat-flat-button routerLink="/inscription">Créer un compte</a>
+    </nav>
+  }
+</mat-toolbar>
+
+@if (showSidenav()) {
+  <mat-sidenav-container class="cf-sidenav-container">
+    <mat-sidenav
+      id="cf-sidenav"
+      [mode]="isHandset() ? 'over' : 'side'"
+      [opened]="!isHandset() || menuOpen()"
+      (closedStart)="menuOpen.set(false)"
+      class="cf-sidenav"
+    >
+      <nav aria-label="Navigation principale" class="cf-nav">
+        <ul>
+          @for (item of navItems(); track item.link) {
+            <li>
+              <a
+                class="cf-nav-link"
+                matRipple
+                [routerLink]="item.link"
+                routerLinkActive="cf-nav-active"
+                ariaCurrentWhenActive="page"
+                [routerLinkActiveOptions]="{ exact: !!item.exact }"
+              >
+                <mat-icon aria-hidden="true">{{ item.icon }}</mat-icon>
+                <span>{{ item.label }}</span>
+              </a>
+            </li>
+          }
+        </ul>
+      </nav>
+    </mat-sidenav>
+    <mat-sidenav-content>
+      <main id="contenu-principal" tabindex="-1" class="cf-main">
+        <router-outlet />
+      </main>
+    </mat-sidenav-content>
+  </mat-sidenav-container>
+} @else {
+  <main id="contenu-principal" tabindex="-1" class="cf-main cf-main-public">
+    <router-outlet />
+  </main>
+}

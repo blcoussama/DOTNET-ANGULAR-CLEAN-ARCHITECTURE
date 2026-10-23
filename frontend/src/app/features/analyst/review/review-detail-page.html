@@ -1,0 +1,244 @@
+<section class="cf-page">
+  <a mat-button routerLink="/analyste/file" class="cf-back">
+    <mat-icon aria-hidden="true">arrow_back</mat-icon> File d'attente
+  </a>
+
+  @if (dossier.error()) {
+    @if (notFound()) {
+      <div class="cf-state">
+        <mat-icon class="cf-state-icon" aria-hidden="true">search_off</mat-icon>
+        <p class="cf-state-title">Dossier introuvable</p>
+      </div>
+    } @else {
+      <app-error-state
+        title="Impossible de charger le dossier"
+        [message]="loadErrorMessage()"
+        (retry)="dossier.reload()"
+      />
+    }
+  } @else if (!detail()) {
+    <app-loading-state label="Chargement du dossier…" />
+  } @else {
+    @let d = detail()!;
+    @if (dossier.isLoading() || busy()) {
+      <mat-progress-bar mode="indeterminate" aria-label="Opération en cours" />
+    }
+
+    <header class="cf-page-header">
+      <div>
+        <h1>Dossier {{ d.reference }}</h1>
+        <p class="cf-muted">
+          {{ d.clientName }} · {{ d.productType | label: 'product' }} ·
+          {{
+            d.submittedAt
+              ? 'soumis le ' + (d.submittedAt | date: 'dd/MM/yyyy à HH:mm')
+              : 'non soumis'
+          }}
+        </p>
+      </div>
+      <app-status-badge data-testid="status" [status]="d.status" />
+      @if (assignedToMe()) {
+        <span class="cf-badge cf-status-submitted">Assigné à moi</span>
+      } @else if (d.assignedAnalystId) {
+        <span class="cf-badge">Assigné à {{ d.assignedAnalystName || 'un autre analyste' }}</span>
+      }
+    </header>
+
+    <section class="cf-card cf-actions-bar" aria-label="Actions sur le dossier">
+      @if (canAssign()) {
+        <button
+          mat-flat-button
+          type="button"
+          (click)="assign()"
+          [disabled]="busy()"
+          data-testid="assign"
+        >
+          <mat-icon aria-hidden="true">assignment_ind</mat-icon> M'assigner le dossier
+        </button>
+      }
+      @if (canDecide()) {
+        <button
+          mat-flat-button
+          class="cf-success-button"
+          type="button"
+          (click)="decide('approve')"
+          [disabled]="busy()"
+          data-testid="approve"
+        >
+          <mat-icon aria-hidden="true">check</mat-icon> Approuver
+        </button>
+        <button
+          mat-flat-button
+          class="cf-danger-button"
+          type="button"
+          (click)="decide('reject')"
+          [disabled]="busy()"
+          data-testid="reject"
+        >
+          <mat-icon aria-hidden="true">close</mat-icon> Refuser
+        </button>
+        <button
+          mat-stroked-button
+          type="button"
+          (click)="decide('request-info')"
+          [disabled]="busy()"
+          data-testid="request-info"
+        >
+          <mat-icon aria-hidden="true">help_outline</mat-icon> Demander des compléments
+        </button>
+      } @else if (d.status === 'UNDER_REVIEW') {
+        <p class="cf-muted" data-testid="not-assigned-hint">
+          Seul l'analyste assigné à ce dossier (ou un administrateur) peut décider.
+        </p>
+      } @else if (!canAssign()) {
+        <p class="cf-muted">
+          Aucune action disponible pour le statut « {{ d.status | label: 'status' }} ».
+        </p>
+      }
+    </section>
+
+    @if (d.decisionComment && (d.status === 'APPROVED' || d.status === 'REJECTED')) {
+      <div
+        class="cf-alert"
+        [class]="d.status === 'APPROVED' ? 'cf-alert cf-alert-success' : 'cf-alert cf-alert-danger'"
+      >
+        <mat-icon aria-hidden="true">{{
+          d.status === 'APPROVED' ? 'check_circle' : 'cancel'
+        }}</mat-icon>
+        <div>
+          <p>
+            <strong>Décision du {{ d.decidedAt | date: 'dd/MM/yyyy' }}</strong>
+          </p>
+          <p class="cf-pre">{{ d.decisionComment }}</p>
+        </div>
+      </div>
+    }
+
+    <div class="cf-grid-2 cf-section">
+      <section class="cf-card" aria-labelledby="score-title">
+        <h2 id="score-title">Score de risque</h2>
+        <app-score-breakdown
+          [score]="d.riskScore"
+          [grade]="d.riskGrade"
+          [recommendation]="d.recommendation"
+          [criteria]="d.scoringBreakdown"
+        />
+      </section>
+
+      <section class="cf-card" aria-labelledby="loan-title">
+        <h2 id="loan-title">Demande</h2>
+        <dl class="cf-dl">
+          <dt>Produit</dt>
+          <dd>{{ d.productType | label: 'product' }}</dd>
+          <dt>Montant</dt>
+          <dd>{{ d.amount | mad }}</dd>
+          <dt>Durée</dt>
+          <dd>{{ d.durationMonths }} mois</dd>
+          <dt>Taux annuel</dt>
+          <dd>
+            {{
+              d.annualRate !== null && d.annualRate !== undefined
+                ? (d.annualRate / 100 | percent: '1.1-2')
+                : '—'
+            }}
+          </dd>
+          <dt>Mensualité</dt>
+          <dd>{{ d.monthlyPayment | mad: 2 }}</dd>
+          <dt>Coût total</dt>
+          <dd>{{ d.totalCost | mad: 2 }}</dd>
+          <dt>Objet</dt>
+          <dd class="cf-pre">{{ d.purpose || '—' }}</dd>
+        </dl>
+        @if (d.debtRatio !== null && d.debtRatio !== undefined) {
+          <div class="cf-debt">
+            <div class="cf-row">
+              <strong>Taux d'endettement</strong>
+              <span class="cf-spacer"></span>
+              <span [class.cf-debt-over]="debtOverThreshold()" data-testid="review-debt">{{
+                d.debtRatio | percent: '1.0-1'
+              }}</span>
+            </div>
+            <div
+              class="cf-debt-gauge"
+              role="meter"
+              aria-label="Taux d'endettement"
+              aria-valuemin="0"
+              aria-valuemax="100"
+              [attr.aria-valuenow]="debtGauge()"
+              [attr.aria-valuetext]="(d.debtRatio | percent: '1.0-1') + ', seuil 40 %'"
+            >
+              <span
+                class="cf-debt-fill"
+                [class.cf-debt-fill-over]="debtOverThreshold()"
+                [style.width.%]="debtGauge()"
+              ></span>
+              <span
+                class="cf-debt-threshold"
+                [style.left.%]="threshold * 100"
+                aria-hidden="true"
+              ></span>
+            </div>
+            <p class="cf-muted cf-small">Seuil d'alerte : 40 %</p>
+            @if (debtOverThreshold()) {
+              <p class="cf-alert cf-alert-warning" role="status">
+                Endettement au-dessus du seuil de 40 %.
+              </p>
+            }
+          </div>
+        }
+      </section>
+    </div>
+
+    <div class="cf-grid-2 cf-section">
+      <section class="cf-card" aria-labelledby="client-title">
+        <h2 id="client-title">Profil client</h2>
+        @if (d.clientProfile; as p) {
+          <dl class="cf-dl" data-testid="client-profile">
+            <dt>Client</dt>
+            <dd>{{ d.clientName }}</dd>
+            @if (d.clientEmail) {
+              <dt>E-mail</dt>
+              <dd>{{ d.clientEmail }}</dd>
+            }
+            <dt>Âge</dt>
+            <dd>{{ clientAge() !== null ? clientAge() + ' ans' : '—' }}</dd>
+            <dt>Ville</dt>
+            <dd>{{ p.city || '—' }}</dd>
+            <dt>Téléphone</dt>
+            <dd>{{ p.phone || '—' }}</dd>
+            <dt>Contrat</dt>
+            <dd>{{ p.employmentType | label: 'employment' }}</dd>
+            <dt>Employeur</dt>
+            <dd>{{ p.employer || '—' }}</dd>
+            <dt>Ancienneté</dt>
+            <dd>{{ p.yearsAtCurrentJob ?? '—' }} an(s)</dd>
+            <dt>Revenu mensuel</dt>
+            <dd>{{ p.monthlyIncome | mad }}</dd>
+            <dt>Charges en cours</dt>
+            <dd>{{ p.monthlyCharges | mad }}</dd>
+            @if (existingDebtRatio() !== null) {
+              <dt>Endettement actuel</dt>
+              <dd>{{ existingDebtRatio() | percent: '1.0-1' }}</dd>
+            }
+          </dl>
+        } @else {
+          <p class="cf-muted">Profil client indisponible.</p>
+        }
+      </section>
+
+      <section class="cf-card" aria-labelledby="docs-title">
+        <h2 id="docs-title">Pièces justificatives ({{ d.documents.length }})</h2>
+        <app-document-list
+          [documents]="d.documents"
+          [busyId]="busyDocId()"
+          (download)="download($event)"
+        />
+      </section>
+    </div>
+
+    <section class="cf-card cf-section" aria-labelledby="timeline-title">
+      <h2 id="timeline-title">Historique</h2>
+      <app-timeline [events]="d.events" />
+    </section>
+  }
+</section>

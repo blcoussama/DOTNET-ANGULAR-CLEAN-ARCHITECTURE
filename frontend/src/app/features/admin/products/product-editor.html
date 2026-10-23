@@ -1,0 +1,132 @@
+<form
+  class="cf-card"
+  [formGroup]="form"
+  (ngSubmit)="save()"
+  novalidate
+  [attr.aria-labelledby]="'product-' + product().type"
+>
+  <div class="cf-row">
+    <mat-icon aria-hidden="true">{{ icons[product().type] }}</mat-icon>
+    <h2 [id]="'product-' + product().type">{{ labels[product().type] }}</h2>
+    <span class="cf-spacer"></span>
+    <mat-slide-toggle formControlName="isActive">{{
+      form.controls.isActive.value ? 'Actif' : 'Inactif'
+    }}</mat-slide-toggle>
+  </div>
+
+  @if (error()) {
+    <p class="cf-alert cf-alert-danger" role="alert">{{ error() }}</p>
+  }
+
+  <div class="cf-form-grid">
+    <mat-form-field class="cf-full">
+      <mat-label>Taux annuel (%)</mat-label>
+      <input
+        matInput
+        type="number"
+        inputmode="decimal"
+        step="0.01"
+        min="0"
+        max="30"
+        formControlName="annualRate"
+        required
+      />
+      @if (form.controls.annualRate.invalid) {
+        <mat-error>{{
+          form.controls.annualRate.getError('server') || 'Taux entre 0 et 30 %.'
+        }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Montant minimum (MAD)</mat-label>
+      <input
+        matInput
+        type="number"
+        inputmode="numeric"
+        min="1"
+        formControlName="minAmount"
+        required
+      />
+      @if (form.controls.minAmount.invalid) {
+        <mat-error>{{
+          form.controls.minAmount.getError('server') || 'Montant supérieur à 0.'
+        }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Montant maximum (MAD)</mat-label>
+      <input
+        matInput
+        type="number"
+        inputmode="numeric"
+        min="1"
+        formControlName="maxAmount"
+        required
+      />
+      @if (form.controls.maxAmount.invalid) {
+        <mat-error>{{
+          form.controls.maxAmount.getError('server') || 'Montant supérieur à 0.'
+        }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Durée minimum (mois)</mat-label>
+      <input
+        matInput
+        type="number"
+        inputmode="numeric"
+        min="1"
+        step="1"
+        formControlName="minDurationMonths"
+        required
+      />
+      @if (form.controls.minDurationMonths.invalid) {
+        <mat-error>{{
+          form.controls.minDurationMonths.getError('server') || 'Nombre entier de mois (1 à 600).'
+        }}</mat-error>
+      }
+    </mat-form-field>
+    <mat-form-field>
+      <mat-label>Durée maximum (mois)</mat-label>
+      <input
+        matInput
+        type="number"
+        inputmode="numeric"
+        min="1"
+        step="1"
+        formControlName="maxDurationMonths"
+        required
+      />
+      @if (form.controls.maxDurationMonths.invalid) {
+        <mat-error>{{
+          form.controls.maxDurationMonths.getError('server') || 'Nombre entier de mois (1 à 600).'
+        }}</mat-error>
+      }
+    </mat-form-field>
+  </div>
+
+  @if (form.hasError('amountRange')) {
+    <p class="cf-alert cf-alert-danger" role="alert">
+      Le montant minimum doit être inférieur ou égal au maximum.
+    </p>
+  }
+  @if (form.hasError('durationRange')) {
+    <p class="cf-alert cf-alert-danger" role="alert">
+      La durée minimum doit être inférieure ou égale au maximum.
+    </p>
+  }
+
+  <div class="cf-actions">
+    <button mat-button type="button" (click)="reset()" [disabled]="form.pristine || saving()">
+      Annuler les modifications
+    </button>
+    <button
+      mat-flat-button
+      type="submit"
+      [disabled]="form.pristine || saving()"
+      [attr.data-testid]="'save-' + product().type"
+    >
+      {{ saving() ? 'Enregistrement…' : 'Enregistrer' }}
+    </button>
+  </div>
+</form>

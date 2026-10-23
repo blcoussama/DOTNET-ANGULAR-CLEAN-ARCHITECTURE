@@ -1,0 +1,125 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+}
+
+.cf-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  gap: 8px;
+  background: var(--mat-sys-surface-container);
+  border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.cf-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--mat-sys-primary);
+  font: var(--mat-sys-title-large);
+  font-weight: 500;
+  text-decoration: none;
+  border-radius: 8px;
+  padding: 4px 6px;
+}
+
+.cf-public-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cf-user-button {
+  .cf-user-name {
+    margin: 0 4px 0 8px;
+  }
+}
+
+.cf-avatar {
+  display: inline-grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--mat-sys-primary);
+  color: var(--mat-sys-on-primary);
+  font: var(--mat-sys-label-large);
+}
+
+.cf-user-card {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px;
+  min-width: 220px;
+}
+
+.cf-role-chip {
+  align-self: flex-start;
+  margin-top: 6px;
+  padding: 2px 10px;
+  border-radius: 12px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+  font: var(--mat-sys-label-medium);
+}
+
+.cf-sidenav-container {
+  flex: 1;
+}
+
+.cf-sidenav {
+  width: 248px;
+  border-right: 1px solid var(--mat-sys-outline-variant);
+  background: var(--mat-sys-surface-container-low);
+}
+
+.cf-nav {
+  padding: 8px;
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.cf-nav-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-bottom: 2px;
+  border-radius: 24px;
+  color: var(--mat-sys-on-surface-variant);
+  font: var(--mat-sys-label-large);
+  text-decoration: none;
+  position: relative;
+  overflow: hidden;
+
+  &:hover {
+    background: var(--mat-sys-surface-container-high);
+  }
+
+  &.cf-nav-active {
+    background: var(--mat-sys-secondary-container);
+    color: var(--mat-sys-on-secondary-container);
+  }
+}
+
+.cf-main {
+  outline: none;
+  min-height: calc(100vh - 64px);
+}
+
+@media (max-width: 599.98px) {
+  .cf-user-name {
+    display: none;
+  }
+
+  .cf-public-nav a:not(:last-child) {
+    padding: 0 8px;
+  }
+}

@@ -1,0 +1,105 @@
+<section class="cf-page">
+  <header class="cf-page-header">
+    <div>
+      <h1>Mes demandes de crédit</h1>
+      <p class="cf-muted">Suivez l'avancement de vos dossiers.</p>
+    </div>
+    <span class="cf-spacer"></span>
+    <a mat-flat-button routerLink="/client/demandes/nouvelle">
+      <mat-icon aria-hidden="true">add</mat-icon> Nouvelle demande
+    </a>
+  </header>
+
+  <div class="cf-filters">
+    <mat-form-field>
+      <mat-label>Statut</mat-label>
+      <mat-select [value]="status()" (selectionChange)="onStatusChange($event.value)">
+        <mat-option [value]="null">Tous les statuts</mat-option>
+        @for (s of statuses; track s) {
+          <mat-option [value]="s">{{ statusLabels[s] }}</mat-option>
+        }
+      </mat-select>
+    </mat-form-field>
+  </div>
+
+  @if (applications.error()) {
+    <app-error-state
+      title="Impossible de charger vos demandes"
+      [message]="errorMessage(applications.error())"
+      (retry)="applications.reload()"
+    />
+  } @else if (!data() && applications.isLoading()) {
+    <app-loading-state label="Chargement de vos demandes…" />
+  } @else if (rows().length === 0) {
+    <app-empty-state
+      icon="folder_off"
+      [title]="status() ? 'Aucune demande avec ce statut' : 'Vous n’avez encore aucune demande'"
+      [message]="
+        status() ? null : 'Simulez votre crédit puis déposez votre dossier en quelques minutes.'
+      "
+    >
+      @if (!status()) {
+        <a mat-flat-button routerLink="/client/demandes/nouvelle">Déposer une demande</a>
+      }
+    </app-empty-state>
+  } @else {
+    <div class="cf-table-wrapper">
+      @if (applications.isLoading()) {
+        <mat-progress-bar mode="indeterminate" aria-label="Actualisation" />
+      }
+      <table mat-table [dataSource]="rows()" aria-label="Mes demandes de crédit">
+        <ng-container matColumnDef="reference">
+          <th mat-header-cell *matHeaderCellDef scope="col">Référence</th>
+          <td mat-cell *matCellDef="let row">
+            <a [routerLink]="['/client/demandes', row.id]">{{ row.reference }}</a>
+          </td>
+        </ng-container>
+        <ng-container matColumnDef="product">
+          <th mat-header-cell *matHeaderCellDef scope="col">Produit</th>
+          <td mat-cell *matCellDef="let row">{{ row.productType | label: 'product' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="amount">
+          <th mat-header-cell *matHeaderCellDef scope="col" class="cf-num">Montant</th>
+          <td mat-cell *matCellDef="let row" class="cf-num">{{ row.amount | mad }}</td>
+        </ng-container>
+        <ng-container matColumnDef="duration">
+          <th mat-header-cell *matHeaderCellDef scope="col" class="cf-num">Durée</th>
+          <td mat-cell *matCellDef="let row" class="cf-num">{{ row.durationMonths }} mois</td>
+        </ng-container>
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef scope="col">Statut</th>
+          <td mat-cell *matCellDef="let row"><app-status-badge [status]="row.status" /></td>
+        </ng-container>
+        <ng-container matColumnDef="createdAt">
+          <th mat-header-cell *matHeaderCellDef scope="col">Créée le</th>
+          <td mat-cell *matCellDef="let row">{{ row.createdAt | date: 'dd/MM/yyyy' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef scope="col">
+            <span class="cf-visually-hidden">Actions</span>
+          </th>
+          <td mat-cell *matCellDef="let row">
+            <a
+              mat-icon-button
+              [routerLink]="['/client/demandes', row.id]"
+              [attr.aria-label]="'Voir la demande ' + row.reference"
+            >
+              <mat-icon>chevron_right</mat-icon>
+            </a>
+          </td>
+        </ng-container>
+        <tr mat-header-row *matHeaderRowDef="columns"></tr>
+        <tr mat-row *matRowDef="let row; columns: columns"></tr>
+      </table>
+    </div>
+    <mat-paginator
+      [length]="total()"
+      [pageIndex]="page() - 1"
+      [pageSize]="pageSize()"
+      [pageSizeOptions]="[5, 10, 20, 50]"
+      (page)="onPage($event)"
+      showFirstLastButtons
+      aria-label="Pagination de mes demandes"
+    />
+  }
+</section>
