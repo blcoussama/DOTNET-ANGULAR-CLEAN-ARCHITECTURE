@@ -1,0 +1,52 @@
+# ---------- Secrets / configuration locale ----------
+.env
+.env.*
+!.env.example
+appsettings.*.local.json
+*.pfx
+*.p12
+*.key
+*.pem
+
+# ---------- .NET ----------
+[Bb]in/
+[Oo]bj/
+*.user
+*.rsuser
+*.suo
+*.userprefs
+.vs/
+[Tt]est[Rr]esults/
+coverage/
+coverage*.json
+coverage*.xml
+*.coverage
+*.coveragexml
+*.trx
+BenchmarkDotNet.Artifacts/
+publish/
+*.nupkg
+
+# Stockage local des pièces justificatives (Storage:RootPath = App_Data/uploads par défaut)
+App_Data/
+
+# ---------- Angular / Node ----------
+node_modules/
+dist/
+.angular/
+out-tsc/
+npm-debug.log*
+yarn-error.log*
+.sass-cache/
+
+# ---------- Tests de bout en bout (Playwright, e2e/) ----------
+e2e/.tmp/
+playwright-report/
+test-results/
+blob-report/
+
+# ---------- IDE / OS ----------
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

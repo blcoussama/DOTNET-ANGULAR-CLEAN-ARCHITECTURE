@@ -1,0 +1,24 @@
+# Fins de ligne normalisées : LF dans le dépôt et dans les copies de travail
+# (images Docker, scripts shell et runners Linux de la CI).
+* text=auto eol=lf
+
+# Fichiers propres à Windows
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binaires (jamais de conversion ni de diff texte)
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.webp binary
+*.pdf  binary
+*.woff binary
+*.woff2 binary
+*.ttf  binary
+*.eot  binary
+*.zip  binary
+*.dll  binary
+*.exe  binary
