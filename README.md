@@ -1,6 +1,6 @@
 # CreditFlow
 
-[![CI](https://github.com/blcoussama/CREDITFLOW/actions/workflows/ci.yml/badge.svg)](https://github.com/blcoussama/CREDITFLOW/actions/workflows/ci.yml)
+[![CI](https://github.com/blcoussama/DOTNET-ANGULAR-CLEAN-ARCHITECTURE/actions/workflows/ci.yml/badge.svg)](https://github.com/blcoussama/DOTNET-ANGULAR-CLEAN-ARCHITECTURE/actions/workflows/ci.yml)
 
 Plateforme de gestion des **demandes de crédit** d'une banque : le client simule puis dépose une demande avec ses pièces justificatives ; un analyste instruit le dossier, aidé d'un **score de risque** calculé automatiquement, puis approuve, refuse ou demande des compléments ; un administrateur gère les utilisateurs et les produits de crédit.
 
