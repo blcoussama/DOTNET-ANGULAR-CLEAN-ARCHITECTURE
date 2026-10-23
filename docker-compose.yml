@@ -1,0 +1,88 @@
+# CreditFlow : SQL Server + API ASP.NET Core + frontend Angular (nginx).
+#
+#   cp .env.example .env     # puis renseigner MSSQL_SA_PASSWORD et JWT_SIGNING_KEY
+#   docker compose up -d --build
+#   -> http://localhost:8080  (SPA ; l'API est relayée par nginx sous /api/v1)
+#
+# Toutes les valeurs viennent de .env. Compose interpole le fichier entier, quel que soit le
+# service lancé : seul MSSQL_SA_PASSWORD est donc obligatoire (« :? »), car utilisé par sqlserver
+# ET par api. La clé JWT n'est pas bloquante ici (pour pouvoir lancer « docker compose up sqlserver »
+# seul) : c'est l'API qui refuse de démarrer si elle est absente ou trop courte.
+
+name: creditflow
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: ${MSSQL_PID:-Developer}
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Définir MSSQL_SA_PASSWORD dans .env (voir .env.example)}
+    ports:
+      # Exposé uniquement sur la machine locale (outils SQL, dotnet run hors conteneur).
+      - "127.0.0.1:${MSSQL_HOST_PORT:-1433}:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      # $$ : la variable est développée dans le conteneur, pas par Compose.
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -Q 'SELECT 1' -b -o /dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: creditflow-api:${IMAGE_TAG:-local}
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      Database__Provider: SqlServer
+      Database__MigrateOnStartup: "true"
+      ConnectionStrings__Default: "Server=sqlserver,1433;Database=${MSSQL_DATABASE:-CreditFlow};User Id=sa;Password=${MSSQL_SA_PASSWORD:?Définir MSSQL_SA_PASSWORD dans .env};Encrypt=True;TrustServerCertificate=True"
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:-}
+      Cors__AllowedOrigins__0: ${CORS_ALLOWED_ORIGIN:-http://localhost:8080}
+      Storage__RootPath: /var/lib/creditflow/documents
+      DataProtection__KeysPath: /var/lib/creditflow/keys
+      # Derrière nginx : adresse IP réelle du client (limitation de débit) et schéma d'origine.
+      # Sûr ici car l'API n'est joignable que depuis le réseau interne de Compose.
+      ForwardedHeaders__Enabled: "true"
+      # Comptes de démonstration : créés uniquement si ASPNETCORE_ENVIRONMENT=Development
+      # et si le mot de passe correspondant est fourni (sinon le compte est ignoré).
+      Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
+      Seed__AnalystPassword: ${SEED_ANALYST_PASSWORD:-}
+      Seed__ClientPassword: ${SEED_CLIENT_PASSWORD:-}
+    volumes:
+      - documents:/var/lib/creditflow/documents
+      - dataprotection-keys:/var/lib/creditflow/keys
+    # Pas de port publié : l'API n'est joignable que via nginx (service frontend).
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: creditflow-frontend:${IMAGE_TAG:-local}
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_BIND_ADDRESS:-127.0.0.1}:${FRONTEND_PORT:-8080}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    restart: unless-stopped
+
+volumes:
+  sqlserver-data:
+  documents:
+  dataprotection-keys:

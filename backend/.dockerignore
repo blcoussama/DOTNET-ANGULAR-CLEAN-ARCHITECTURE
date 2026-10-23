@@ -1,0 +1,19 @@
+# Contexte de build minimal pour backend/Dockerfile
+**/bin/
+**/obj/
+**/TestResults/
+**/coverage/
+tests/
+.vs/
+.vscode/
+.idea/
+**/*.user
+**/*.rsuser
+**/*.http
+**/appsettings.*.local.json
+**/App_Data/
+.env
+.env.*
+*.md
+Dockerfile
+.dockerignore

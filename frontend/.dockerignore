@@ -1,0 +1,17 @@
+# Contexte de build minimal pour frontend/Dockerfile
+node_modules
+dist
+.angular
+out-tsc
+coverage
+tmp
+.vscode
+.idea
+.git
+.gitignore
+.env
+.env.*
+npm-debug.log*
+*.md
+Dockerfile
+.dockerignore
