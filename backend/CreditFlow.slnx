@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CreditFlow.Api/CreditFlow.Api.csproj" />
+    <Project Path="src/CreditFlow.Application/CreditFlow.Application.csproj" />
+    <Project Path="src/CreditFlow.Domain/CreditFlow.Domain.csproj" />
+    <Project Path="src/CreditFlow.Infrastructure/CreditFlow.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CreditFlow.Api.IntegrationTests/CreditFlow.Api.IntegrationTests.csproj" />
+    <Project Path="tests/CreditFlow.Application.Tests/CreditFlow.Application.Tests.csproj" />
+    <Project Path="tests/CreditFlow.Domain.Tests/CreditFlow.Domain.Tests.csproj" />
+  </Folder>
+</Solution>
