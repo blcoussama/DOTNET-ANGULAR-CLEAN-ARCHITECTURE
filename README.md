@@ -1,5 +1,7 @@
 # CreditFlow
 
+[![CI](https://github.com/blcoussama/CREDITFLOW/actions/workflows/ci.yml/badge.svg)](https://github.com/blcoussama/CREDITFLOW/actions/workflows/ci.yml)
+
 Plateforme de gestion des **demandes de crédit** d'une banque : le client simule puis dépose une demande avec ses pièces justificatives ; un analyste instruit le dossier, aidé d'un **score de risque** calculé automatiquement, puis approuve, refuse ou demande des compléments ; un administrateur gère les utilisateurs et les produits de crédit.
 
 > **La décision est toujours humaine.** Le score et la recommandation aident l'analyste ; ils ne déclenchent jamais d'approbation ni de refus automatique.
@@ -281,7 +283,7 @@ Les mots de passe des bases de CI sont jetables, propres à chaque exécution et
 
 ## État d'avancement
 
-Vérifications faites en local le 22/10/2026 sur une copie du code de ce jour :
+Vérifications faites en local le 22/10/2026 et en CI le 23/10/2026 :
 
 | Élément | État |
 |---|---|
@@ -289,9 +291,9 @@ Vérifications faites en local le 22/10/2026 sur une copie du code de ce jour :
 | Tests backend | Au vert : 189 tests du domaine, 118 de la couche application, 67 tests d'intégration exécutés contre SQL Server 2022 **et** contre PostgreSQL 17 |
 | Frontend (parcours public, client, analyste, admin) | Implémenté ; lint et build de production au vert ; 168 tests Vitest au vert, y compris sous forte charge machine (délais de test relevés à 30 s) |
 | Images Docker et `docker compose` | Construites et démarrées localement : santé, SPA, inscription, connexion, dépôt de pièces et soumission vérifiés à travers nginx |
-| Workflow GitHub Actions | Validé statiquement (actionlint + shellcheck, hadolint pour les Dockerfiles) ; **à valider au premier run GitHub** (services de CI, cache Buildx, matrice PostgreSQL 18, gitleaks sur l'historique réel) |
-| Couverture de code | Rapports Cobertura générés ; **valeurs à constater au premier run GitHub** (non mesurables dans l'environnement de développement utilisé) |
-| Tests de bout en bout (Playwright, dossier `e2e/`) | 4 scénarios au vert en local (navigateur réel, API sur PostgreSQL) ; job `e2e` de la CI **à valider au premier run GitHub** |
+| Workflow GitHub Actions | **Vert sur GitHub** dès le premier run (23/10/2026) : les 7 jobs passent (SQL Server 2022, PostgreSQL 17 et 18, frontend, e2e Playwright, Docker + test de fumée compose, sécurité) |
+| Couverture de code | Rapports Cobertura publiés en artefact de chaque run, résumé dans la page du run (job `backend`) |
+| Tests de bout en bout (Playwright, dossier `e2e/`) | 4 scénarios au vert, en local et dans la CI (navigateur réel, API sur PostgreSQL) |
 | Captures d'écran | Faites sur l'application réelle (`docs/screenshots/`) |
 
 ## Licence
